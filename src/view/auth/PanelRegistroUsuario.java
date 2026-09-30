@@ -7,7 +7,6 @@ import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.BorderFactory;
@@ -17,6 +16,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
+import net.miginfocom.swing.MigLayout;
 import view.core.INavegador;
 import view.core.MainFrame;
 import view.factory.IComponentesFactory;
@@ -63,8 +63,6 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
     /** Diámetro del punto del semáforo de fortaleza. */
     private static final int DIAMETRO_PUNTO_FORTALEZA = 9;
 
-    /** Contador interno de filas del formulario. */
-    private int fila = 0;
 
     /**
      * @param fabrica   fábrica de la que se toman todos los componentes del formulario
@@ -115,49 +113,47 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
 
     /** Tarjeta con los campos del formulario y el botón de registro. */
     private JPanel construirTarjeta() {
-        JPanel tarjeta = fabrica.crearTarjeta(new GridBagLayout());
+        // MigLayout para el interior de la tarjeta: son ocho pares
+        // etiqueta/campo en una sola columna, y con GridBagLayout cada fila
+        // costaba tres líneas de GridBagConstraints más un contador de fila
+        // que había que ir pasando. Aquí la columna se declara una vez
+        // ("[grow,fill]" = ocupa todo el ancho) y cada componente solo dice
+        // qué separación quiere. El alto sigue contando: ver la nota de
+        // presupuesto más abajo.
+        JPanel tarjeta = fabrica.crearTarjeta(
+                new MigLayout("wrap 1, insets 0, gapy 0, fillx", "[grow,fill]"));
         // La fábrica ya le puso fondo y borde; se combina con el relleno
         // interno en vez de reemplazar el borde con setBorder(...).
         tarjeta.setBorder(BorderFactory.createCompoundBorder(
                 tarjeta.getBorder(), new EmptyBorder(12, 26, 10, 26)));
-
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.anchor = GridBagConstraints.WEST;
 
         txtIdentificacion = fabrica.crearCampoTexto("Ej: 1002345678", IconoCampo.Tipo.IDENTIFICACION);
         txtNombres = fabrica.crearCampoTexto("Ej: Juan Pérez", IconoCampo.Tipo.USUARIO);
         txtCorreo = fabrica.crearCampoTexto("correo@empresa.com", IconoCampo.Tipo.CORREO);
         campoPassword = fabrica.crearCampoPassword("Mínimo 7 caracteres");
 
-        agregarFila(tarjeta, gbc, fabrica.crearEtiqueta("Identificación"), txtIdentificacion);
-        agregarFila(tarjeta, gbc, fabrica.crearEtiqueta("Nombres"), txtNombres);
-        agregarFila(tarjeta, gbc, fabrica.crearEtiqueta("Correo electrónico"), txtCorreo);
-        agregarFila(tarjeta, gbc, construirEncabezadoPassword(), campoPassword);
+        agregarFila(tarjeta, fabrica.crearEtiqueta("Identificación"), txtIdentificacion);
+        agregarFila(tarjeta, fabrica.crearEtiqueta("Nombres"), txtNombres);
+        agregarFila(tarjeta, fabrica.crearEtiqueta("Correo electrónico"), txtCorreo);
+        agregarFila(tarjeta, construirEncabezadoPassword(), campoPassword);
 
-        selectorTipoCuenta = fabrica.crearSelectorTipoCuenta(
+        selectorTipoCuenta = fabrica.crearSelectorOpciones(
                 new String[]{TIPO_CLIENTE, TIPO_PROVEEDOR}, this::actualizarCampoDinamico);
-        agregarFila(tarjeta, gbc, fabrica.crearEtiqueta("Tipo de cuenta"), selectorTipoCuenta);
+        agregarFila(tarjeta, fabrica.crearEtiqueta("Tipo de cuenta"), selectorTipoCuenta);
 
         lblCampoDinamico = fabrica.crearEtiqueta("Dirección de envío");
         txtCampoDinamico = fabrica.crearCampoTexto("Ej: Calle 10 #5-20, Bogotá", IconoCampo.Tipo.UBICACION);
-        agregarFila(tarjeta, gbc, lblCampoDinamico, txtCampoDinamico);
+        agregarFila(tarjeta, lblCampoDinamico, txtCampoDinamico);
 
         btnRegistrar = fabrica.crearBotonPrimario("REGISTRAR USUARIO");
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(6, 0, 0, 0);
-        tarjeta.add(btnRegistrar, gbc);
+        tarjeta.add(btnRegistrar, "gaptop 6");
 
         // Mensaje inline de validación: reemplaza a la antigua barra de
         // estado gris. El éxito se confirma aparte con un JOptionPane
         // (ver mostrarExito).
         lblMensaje = fabrica.crearEtiqueta(" ");
         lblMensaje.setHorizontalAlignment(SwingConstants.CENTER);
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(4, 0, 0, 0);
-        tarjeta.add(lblMensaje, gbc);
+        tarjeta.add(lblMensaje, "gaptop 4");
 
         JLabel enlaceLogin = fabrica.crearEnlaceSecundario("¿Ya tienes cuenta? Inicia sesión");
         enlaceLogin.addMouseListener(new MouseAdapter() {
@@ -166,9 +162,7 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
                 navegador.mostrarCarta(PanelLogin.NOMBRE_CARTA);
             }
         });
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(8, 0, 0, 0);
-        tarjeta.add(enlaceLogin, gbc);
+        tarjeta.add(enlaceLogin, "gaptop 8");
 
         return tarjeta;
     }
@@ -214,15 +208,21 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
         return fila;
     }
 
-    /** Agrega al formulario una etiqueta y, debajo, su campo correspondiente. */
-    private void agregarFila(JPanel panel, GridBagConstraints gbc, Component etiqueta, Component campo) {
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(0, 0, 3, 0);
-        panel.add(etiqueta, gbc);
-
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(0, 0, 6, 0);
-        panel.add(campo, gbc);
+    /**
+     * Agrega al formulario una etiqueta y, debajo, su campo correspondiente.
+     *
+     * <p>Las separaciones son las mismas que tenía la versión con
+     * {@code GridBagConstraints} (3px bajo la etiqueta, 6px bajo el campo):
+     * se ajustaron a ojo contra el presupuesto de alto de la ventana y
+     * cambiarlas lo reabre.</p>
+     *
+     * @param panel    tarjeta del formulario, con {@link MigLayout} en una columna
+     * @param etiqueta rótulo de la fila
+     * @param campo    control de captura
+     */
+    private void agregarFila(JPanel panel, Component etiqueta, Component campo) {
+        panel.add(etiqueta, "gapbottom 3");
+        panel.add(campo, "gapbottom 6");
     }
 
     /**

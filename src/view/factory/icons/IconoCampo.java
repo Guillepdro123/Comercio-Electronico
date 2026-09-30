@@ -39,7 +39,19 @@ public class IconoCampo implements Icon {
         /** Pin de mapa (dirección de envío). */
         UBICACION,
         /** Edificio (NIT de la empresa). */
-        EMPRESA
+        EMPRESA,
+        /** Renglones de párrafo (descripción de un producto). */
+        TEXTO,
+        /** Etiqueta colgante (precio de un producto). */
+        PRECIO,
+        /** Símbolo de porcentaje (descuento). */
+        DESCUENTO,
+        /** Caja de inventario (existencias). */
+        CAJA,
+        /** Lupa (barra de búsqueda). */
+        BUSCAR,
+        /** Marco con una montaña (referencia de imagen). */
+        IMAGEN
     }
 
     private final Tipo tipo;
@@ -79,6 +91,12 @@ public class IconoCampo implements Icon {
             case ETIQUETA -> dibujarEtiqueta(g2);
             case UBICACION -> dibujarUbicacion(g2);
             case EMPRESA -> dibujarEmpresa(g2);
+            case TEXTO -> dibujarTexto(g2);
+            case PRECIO -> dibujarPrecio(g2);
+            case DESCUENTO -> dibujarDescuento(g2);
+            case CAJA -> dibujarCaja(g2);
+            case BUSCAR -> dibujarBuscar(g2);
+            case IMAGEN -> dibujarImagen(g2);
         }
         g2.dispose();
     }
@@ -107,10 +125,14 @@ public class IconoCampo implements Icon {
         g2.drawLine(8, 10, 8, 12);
     }
 
+    /**
+     * Etiqueta colgante. Antes era un cuadro con un visto dentro, que se leía
+     * como una casilla de verificación y no como un rótulo; se comprobó en
+     * pantalla y se redibujó.
+     */
     private void dibujarEtiqueta(Graphics2D g2) {
-        g2.drawRoundRect(2, 2, 12, 12, 3, 3);
-        g2.drawLine(5, 8, 7, 10);
-        g2.drawLine(7, 10, 11, 5);
+        g2.drawPolygon(new int[]{2, 9, 14, 9, 2}, new int[]{3, 3, 8, 13, 13}, 5);
+        g2.drawOval(4, 7, 3, 3);
     }
 
     private void dibujarUbicacion(Graphics2D g2) {
@@ -127,6 +149,46 @@ public class IconoCampo implements Icon {
         g2.drawLine(7, 7, 8, 7);
         g2.drawLine(4, 10, 5, 10);
         g2.drawLine(7, 10, 8, 10);
+    }
+
+    private void dibujarTexto(Graphics2D g2) {
+        g2.drawLine(2, 4, 14, 4);
+        g2.drawLine(2, 8, 14, 8);
+        g2.drawLine(2, 12, 9, 12);
+    }
+
+    /** Moneda: se distingue de la etiqueta, que ya tiene forma de rótulo. */
+    private void dibujarPrecio(Graphics2D g2) {
+        g2.drawOval(2, 2, 12, 12);
+        g2.drawLine(8, 3, 8, 13);
+        g2.drawArc(5, 4, 6, 4, 0, 180);
+        g2.drawArc(5, 8, 6, 4, 180, 180);
+    }
+
+    private void dibujarDescuento(Graphics2D g2) {
+        g2.drawOval(3, 3, 4, 4);
+        g2.drawOval(9, 9, 4, 4);
+        g2.drawLine(13, 3, 3, 13);
+    }
+
+    private void dibujarCaja(Graphics2D g2) {
+        g2.drawRect(2, 5, 12, 9);
+        g2.drawLine(2, 8, 14, 8);
+        g2.drawLine(8, 5, 8, 8);
+    }
+
+    private void dibujarBuscar(Graphics2D g2) {
+        g2.drawOval(2, 2, 9, 9);
+        g2.drawLine(10, 10, 14, 14);
+    }
+
+    private void dibujarImagen(Graphics2D g2) {
+        g2.drawRoundRect(1, 3, 14, 11, 2, 2);
+        g2.drawOval(4, 6, 2, 2);
+        g2.drawLine(2, 12, 6, 8);
+        g2.drawLine(6, 8, 10, 12);
+        g2.drawLine(10, 12, 12, 10);
+        g2.drawLine(12, 10, 14, 12);
     }
 
     @Override

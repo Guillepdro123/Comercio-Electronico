@@ -28,17 +28,29 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicButtonUI;
+import javax.swing.plaf.basic.BasicMenuItemUI;
 import javax.swing.plaf.basic.BasicOptionPaneUI;
 import javax.swing.plaf.basic.BasicPanelUI;
+import javax.swing.plaf.basic.BasicPopupMenuUI;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableModel;
 import javax.swing.text.JTextComponent;
+import view.factory.charts.GraficoBarras;
+import view.factory.components.BotonCarrito;
 import view.factory.components.CampoPasswordConToggle;
 import view.factory.components.CampoTextoConIcono;
 import view.factory.components.SelectorSegmentado;
@@ -109,10 +121,17 @@ public class ComponentesSwingFactory implements IComponentesFactory {
 
     /** Carpeta relativa de los íconos (asistente animado, check de éxito, ...). */
     private static final String RUTA_ICONOS = "src/resources/images/icons/";
+    private static final String RUTA_PRODUCTOS = "src/resources/images/productos/";
 
     private static final String ARCHIVO_ASISTENTE = "ecommerce_cart.gif";
     private static final String ARCHIVO_CHECK = "check.png";
     private static final int TAM_ICONO_DIALOGO = 40;
+
+    private static final int ANCHO_CAMPO_BUSQUEDA = 420;
+    private static final int PASOS_DESLIZAMIENTO = 12;
+
+    private static final int ALTO_FILA_TABLA = 34;
+    private static final int ALTO_CABECERA_TABLA = 30;
 
     private static final int TAM_INDICADOR_TRANSICION = 26;
     private static final int MS_TRANSICION = 1400;
@@ -160,7 +179,7 @@ public class ComponentesSwingFactory implements IComponentesFactory {
     }
 
     @Override
-    public SelectorSegmentado crearSelectorTipoCuenta(String[] opciones, Runnable alCambiar) {
+    public SelectorSegmentado crearSelectorOpciones(String[] opciones, Runnable alCambiar) {
         return new SelectorSegmentado(this, opciones, alCambiar);
     }
 
@@ -268,14 +287,17 @@ public class ComponentesSwingFactory implements IComponentesFactory {
             public void mouseEntered(MouseEvent e) {
                 if (tamanoNormal[0] == null) {
                     tamanoNormal[0] = boton.getPreferredSize();
-                    maximoNormal[0] = boton.getMaximumSize();
+                    maximoNormal[0] = boton.isMaximumSizeSet() 
+                            ? boton.getMaximumSize() 
+                            : new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE);
                 }
                 Dimension tamanoZoom = new Dimension(
                         tamanoNormal[0].width + CRECIMIENTO_HOVER_PX, tamanoNormal[0].height + CRECIMIENTO_HOVER_PX / 2);
                 Dimension maximoZoom = new Dimension(
                         maximoNormal[0].width == Integer.MAX_VALUE
                                 ? Integer.MAX_VALUE : maximoNormal[0].width + CRECIMIENTO_HOVER_PX,
-                        maximoNormal[0].height + CRECIMIENTO_HOVER_PX / 2);
+                        maximoNormal[0].height == Integer.MAX_VALUE
+                                ? Integer.MAX_VALUE : maximoNormal[0].height + CRECIMIENTO_HOVER_PX / 2);
                 animarTamano(boton, tamanoZoom, maximoZoom, temporizadorEnCurso);
             }
 
@@ -446,7 +468,7 @@ public class ComponentesSwingFactory implements IComponentesFactory {
         // delegado se reconstruyen los componentes internos del diálogo.
         optionPane.setUI(new BasicOptionPaneUI());
         optionPane.setBackground(COLOR_PANEL);
-        estilizarOptionPane(optionPane);
+        estilizarOptionPane(optionPane, null);
 
         JDialog dialogo = optionPane.createDialog(padre, "Éxito");
         // El contentPane del diálogo también lo pinta Nimbus; se le aplica el
@@ -554,7 +576,23 @@ public class ComponentesSwingFactory implements IComponentesFactory {
      *
      * @param componente raíz del árbol a estilizar (el propio {@code JOptionPane})
      */
-    private void estilizarOptionPane(Component componente) {
+    /**
+     * Aplica el tema a las piezas que arma el propio {@link JOptionPane}.
+     *
+     * @param componente raíz desde la que se desciende
+     * @param propio     contenido que entregó quien abre el diálogo, o
+     *                   {@code null} si no hay. Ese subárbol se salta entero:
+     *                   ya salió de esta misma fábrica y viene con su estilo
+     *                   puesto. Sin esta exclusión, el recorrido repintaba
+     *                   también sus botones con el color de acento y, por
+     *                   ejemplo, las cinco categorías de un selector
+     *                   segmentado aparecían las cinco como si estuvieran
+     *                   seleccionadas.
+     */
+    private void estilizarOptionPane(Component componente, Component propio) {
+        if (componente == propio) {
+            return;
+        }
         if (componente instanceof JButton boton) {
             // Igual que el resto de los controles: el delegado Basic del JDK
             // respeta los colores del tema, el de Nimbus los tapa.
@@ -580,7 +618,7 @@ public class ComponentesSwingFactory implements IComponentesFactory {
         }
         if (componente instanceof Container) {
             for (Component hijo : ((Container) componente).getComponents()) {
-                estilizarOptionPane(hijo);
+                estilizarOptionPane(hijo, propio);
             }
         }
     }
@@ -696,6 +734,257 @@ public class ComponentesSwingFactory implements IComponentesFactory {
     @Override
     public Color colorExito() {
         return COLOR_EXITO;
+    }
+
+    @Override
+    public JLabel crearAvatar(String iniciales, int tamano) {
+        JLabel avatar = new JLabel(iniciales, SwingConstants.CENTER);
+        avatar.setOpaque(true);
+        avatar.setBackground(COLOR_ACENTO);
+        avatar.setForeground(COLOR_TEXTO);
+        avatar.setFont(fuente(Font.BOLD, tamano / 3));
+        avatar.setPreferredSize(new Dimension(tamano, tamano));
+        // Radio igual a la mitad del lado: el borde redondeado se convierte
+        // en un círculo, sin pintar nada a mano.
+        avatar.setBorder(new BordeRedondeado(
+                COLOR_ACENTO, COLOR_SIDEBAR, tamano / 2, 1, new Insets(0, 0, 0, 0)));
+        avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return avatar;
+    }
+
+    @Override
+    public JScrollPane crearScroll(JComponent contenido) {
+        JScrollPane scroll = new JScrollPane(contenido);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(true);
+        scroll.getViewport().setBackground(COLOR_FONDO);
+        scroll.getVerticalScrollBar().setUnitIncrement(18);
+        return scroll;
+    }
+
+    @Override
+    public CampoTextoConIcono crearCampoBusqueda(String textoFantasma) {
+        CampoTextoConIcono campo = new CampoTextoConIcono(this, textoFantasma, IconoCampo.Tipo.BUSCAR);
+        campo.setPreferredSize(new Dimension(ANCHO_CAMPO_BUSQUEDA, ALTO_CAMPO));
+        campo.setMaximumSize(campo.getPreferredSize());
+        return campo;
+    }
+
+    @Override
+    public BotonCarrito crearBotonCarrito() {
+        return new BotonCarrito(this);
+    }
+
+    @Override
+    public JLabel crearImagenProducto(String referencia, String nombre, int ancho, int alto) {
+        JLabel recuadro = new JLabel();
+        recuadro.setHorizontalAlignment(SwingConstants.CENTER);
+        recuadro.setPreferredSize(new Dimension(ancho, alto));
+        recuadro.setMaximumSize(new Dimension(ancho, alto));
+        recuadro.setOpaque(true);
+        recuadro.setBackground(COLOR_CAMPO);
+
+        Image imagen = cargarImagenProducto(referencia);
+        if (imagen != null) {
+            // Se encaja dentro del recuadro conservando la proporción, no
+            // estirando: la misma imagen se muestra en la tarjeta del catálogo
+            // (apaisada) y en el detalle (casi cuadrada), y deformarla en una
+            // de las dos se nota de inmediato. Lo que sobra queda del color de
+            // fondo del recuadro, que es el mismo que el de la ilustración.
+            double escala = Math.min(ancho / (double) imagen.getWidth(null),
+                    alto / (double) imagen.getHeight(null));
+            // Mismo escalado que el logo: se dibuja en tiempo de pintado para
+            // no perder nitidez en pantallas con escalado de Windows.
+            recuadro.setIcon(new IconoImagenEscalada(imagen,
+                    (int) Math.round(imagen.getWidth(null) * escala),
+                    (int) Math.round(imagen.getHeight(null) * escala)));
+        } else {
+            recuadro.setFont(fuente(Font.BOLD, Math.max(16, alto / 3)));
+            recuadro.setForeground(COLOR_ACENTO);
+            recuadro.setText(inicial(nombre));
+            recuadro.setBorder(new BordeRedondeado(
+                    COLOR_BORDE, COLOR_PANEL, RADIO_CAMPO, 1, new Insets(0, 0, 0, 0)));
+        }
+        return recuadro;
+    }
+
+    /**
+     * Carga la imagen de un producto.
+     *
+     * <p>Tres intentos, en este orden: recurso del programa, archivo dentro de
+     * la carpeta de productos del proyecto y, por último, la referencia tal
+     * cual como ruta del sistema (para que un proveedor pueda registrar una
+     * imagen suya que no viaja con la entrega). Si ninguno funciona devuelve
+     * {@code null} y quien llama pone su respaldo: una imagen ausente nunca
+     * debe impedir que se vea el producto.</p>
+     *
+     * @param referencia nombre de archivo o ruta registrada en el producto
+     * @return la imagen, o {@code null} si no hay ninguna utilizable
+     */
+    private Image cargarImagenProducto(String referencia) {
+        if (referencia == null || referencia.isBlank()) {
+            return null;
+        }
+        URL recurso = getClass().getResource("/resources/images/productos/" + referencia);
+        if (recurso != null) {
+            return new ImageIcon(recurso).getImage();
+        }
+        File enProyecto = new File(RUTA_PRODUCTOS + referencia);
+        if (enProyecto.exists()) {
+            return new ImageIcon(enProyecto.getAbsolutePath()).getImage();
+        }
+        File sueltoEnDisco = new File(referencia);
+        return sueltoEnDisco.exists() ? new ImageIcon(sueltoEnDisco.getAbsolutePath()).getImage() : null;
+    }
+
+    /** @return primera letra del nombre en mayúscula, para el recuadro sin imagen */
+    private String inicial(String nombre) {
+        return nombre == null || nombre.isBlank()
+                ? "?" : nombre.trim().substring(0, 1).toUpperCase();
+    }
+
+    @Override
+    public GraficoBarras crearGraficoBarras() {
+        return new GraficoBarras(this);
+    }
+
+    @Override
+    public void deslizarPanelLateral(JPanel panel, int anchoDestino) {
+        int anchoInicial = panel.getPreferredSize().width;
+        if (anchoInicial == anchoDestino) {
+            return;
+        }
+        int[] paso = {0};
+        Timer temporizador = new Timer(12, null);
+        temporizador.addActionListener(e -> {
+            paso[0]++;
+            double avance = paso[0] / (double) PASOS_DESLIZAMIENTO;
+            int ancho = (int) Math.round(anchoInicial + (anchoDestino - anchoInicial) * avance);
+            if (paso[0] >= PASOS_DESLIZAMIENTO) {
+                ancho = anchoDestino;
+                temporizador.stop();
+            }
+            panel.setPreferredSize(new Dimension(ancho, 0));
+            panel.revalidate();
+            panel.getParent().repaint();
+        });
+        temporizador.start();
+    }
+
+    @Override
+    public JTable crearTabla(TableModel modelo) {
+        JTable tabla = new JTable(modelo);
+        tabla.setFont(fuente(Font.PLAIN, 13));
+        tabla.setRowHeight(ALTO_FILA_TABLA);
+        tabla.setBackground(COLOR_PANEL);
+        tabla.setForeground(COLOR_TEXTO);
+        tabla.setSelectionBackground(COLOR_ACENTO);
+        tabla.setSelectionForeground(COLOR_TEXTO);
+        tabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tabla.setShowGrid(false);
+        // Un píxel de separación vertical deja ver el fondo entre filas y hace
+        // de línea divisoria sin tener que dibujar ninguna.
+        tabla.setIntercellSpacing(new Dimension(0, 1));
+        tabla.setGridColor(COLOR_BORDE);
+        tabla.setFillsViewportHeight(true);
+        tabla.setRowSelectionAllowed(true);
+
+        // Renderizador opaco para las celdas: el que instala Nimbus no lo es,
+        // y sin él la tabla se pinta con su fondo claro por debajo. Es una
+        // clase estándar del JDK, no un ComponentUI escrito a mano.
+        DefaultTableCellRenderer celda = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object valor,
+                    boolean seleccionada, boolean enfocada, int fila, int columna) {
+                // El renderizador base reimpone en cada pintado el borde que
+                // define el Look and Feel, así que el relleno y la línea
+                // divisoria se aplican después de llamarlo. Se le pasa
+                // 'enfocada' como falso para que Nimbus no dibuje además su
+                // recuadro de foco sobre la celda.
+                super.getTableCellRendererComponent(t, valor, seleccionada, false, fila, columna);
+                setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDE),
+                        new EmptyBorder(0, 12, 0, 12)));
+                return this;
+            }
+        };
+        celda.setOpaque(true);
+        tabla.setDefaultRenderer(Object.class, celda);
+
+        JTableHeader cabecera = tabla.getTableHeader();
+        cabecera.setReorderingAllowed(false);
+        cabecera.setBackground(COLOR_FONDO);
+        cabecera.setForeground(COLOR_TEXTO_SUAVE);
+        cabecera.setBorder(null);
+        cabecera.setPreferredSize(new Dimension(0, ALTO_CABECERA_TABLA));
+        DefaultTableCellRenderer titulo = new DefaultTableCellRenderer();
+        titulo.setOpaque(true);
+        titulo.setBackground(COLOR_FONDO);
+        titulo.setForeground(COLOR_TEXTO_SUAVE);
+        titulo.setFont(fuente(Font.BOLD, 12));
+        titulo.setBorder(new EmptyBorder(0, 12, 0, 12));
+        cabecera.setDefaultRenderer(titulo);
+
+        return tabla;
+    }
+
+    @Override
+    public boolean mostrarDialogoConfirmacion(Component padre, String titulo,
+                                              JComponent contenido, String textoOk) {
+        JOptionPane optionPane = new JOptionPane(contenido, JOptionPane.PLAIN_MESSAGE,
+                JOptionPane.OK_CANCEL_OPTION, null,
+                new Object[]{textoOk, "Cancelar"}, textoOk);
+        // Mismo tratamiento que el diálogo de éxito: sin esto Nimbus lo pinta
+        // con su fondo claro y rompe la paleta.
+        optionPane.setUI(new BasicOptionPaneUI());
+        optionPane.setBackground(COLOR_PANEL);
+        estilizarOptionPane(optionPane, contenido);
+
+        JDialog dialogo = optionPane.createDialog(padre, titulo);
+        if (dialogo.getContentPane() instanceof JPanel panel) {
+            panel.setUI(new BasicPanelUI());
+            panel.setOpaque(true);
+        }
+        dialogo.getContentPane().setBackground(COLOR_PANEL);
+        dialogo.getRootPane().setBackground(COLOR_PANEL);
+        dialogo.getRootPane().setOpaque(true);
+        instalarEntradaSuave(dialogo);
+        dialogo.setVisible(true);
+        dialogo.dispose();
+
+        return textoOk.equals(optionPane.getValue());
+    }
+
+    @Override
+    public JPopupMenu crearMenuUsuario(String nombreUsuario) {
+        JPopupMenu menu = new JPopupMenu();
+        // Igual que el resto de superficies: el delegado Basic respeta los
+        // colores del tema, el de Nimbus los tapa con su fondo claro.
+        menu.setUI(new BasicPopupMenuUI());
+        menu.setBackground(COLOR_PANEL);
+        menu.setBorder(BorderFactory.createLineBorder(COLOR_BORDE, 1));
+
+        JLabel encabezado = new JLabel("  " + nombreUsuario);
+        encabezado.setFont(fuente(Font.BOLD, 12));
+        encabezado.setForeground(COLOR_TEXTO_SUAVE);
+        encabezado.setBorder(new EmptyBorder(8, 8, 8, 16));
+        menu.add(encabezado);
+        menu.addSeparator();
+        return menu;
+    }
+
+    @Override
+    public void agregarOpcionMenu(JPopupMenu menu, String texto, Runnable accion) {
+        JMenuItem opcion = new JMenuItem(texto);
+        opcion.setUI(new BasicMenuItemUI());
+        opcion.setBackground(COLOR_PANEL);
+        opcion.setForeground(COLOR_TEXTO);
+        opcion.setFont(fuente(Font.PLAIN, 13));
+        opcion.setBorder(new EmptyBorder(8, 14, 8, 24));
+        opcion.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        opcion.addActionListener(e -> accion.run());
+        menu.add(opcion);
     }
 
     @Override

@@ -9,7 +9,13 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.table.TableModel;
 import javax.swing.text.JTextComponent;
+import view.factory.charts.GraficoBarras;
+import view.factory.components.BotonCarrito;
 import view.factory.components.CampoPasswordConToggle;
 import view.factory.components.CampoTextoConIcono;
 import view.factory.components.SelectorSegmentado;
@@ -138,14 +144,18 @@ public interface IComponentesFactory {
     void mostrarTransicion(Component padre, String mensaje, Runnable alTerminar);
 
     /**
-     * Crea el selector de tipo de cuenta como control segmentado: todas las
-     * opciones visibles a la vez y la elección en un solo clic.
+     * Crea un control segmentado: todas las opciones visibles a la vez y la
+     * elección en un solo clic.
+     *
+     * <p>Nació para el tipo de cuenta del Registro y hoy lo usa también el
+     * formulario del Proveedor para elegir la categoría de un producto; por
+     * eso el nombre es genérico y no menciona ningún caso de uso.</p>
      *
      * @param opciones  valores entre los que se elige
      * @param alCambiar acción a ejecutar cuando cambia la selección
      * @return selector estilizado, con la primera opción ya activa
      */
-    SelectorSegmentado crearSelectorTipoCuenta(String[] opciones, Runnable alCambiar);
+    SelectorSegmentado crearSelectorOpciones(String[] opciones, Runnable alCambiar);
 
     /**
      * Crea un botón individual de un control segmentado.
@@ -276,6 +286,55 @@ public interface IComponentesFactory {
     /** @return color de bordes sutiles */
     Color colorBorde();
 
+    /**
+     * Crea el avatar circular con las iniciales del usuario, para la esquina
+     * del panel.
+     *
+     * @param iniciales una o dos letras
+     * @param tamano    diámetro en píxeles
+     * @return etiqueta lista para agregarse a la barra superior
+     */
+    JLabel crearAvatar(String iniciales, int tamano);
+
+    /**
+     * Envuelve un contenido en un área desplazable con el estilo del tema.
+     *
+     * @param contenido componente a desplazar
+     * @return panel desplazable, sin borde y con el fondo del tema
+     */
+    JScrollPane crearScroll(JComponent contenido);
+
+    /**
+     * Muestra un diálogo de aceptar/cancelar con contenido propio, usando el
+     * mismo tratamiento de tema que {@link #mostrarDialogoExito(Component, String)}
+     * (que Nimbus, si no, pinta con su fondo claro).
+     *
+     * @param padre     componente sobre el que se centra
+     * @param titulo    título de la ventana
+     * @param contenido panel a mostrar dentro del diálogo
+     * @param textoOk   texto del botón de confirmación
+     * @return {@code true} si el usuario confirmó
+     */
+    boolean mostrarDialogoConfirmacion(Component padre, String titulo,
+                                       JComponent contenido, String textoOk);
+
+    /**
+     * Crea el menú flotante del avatar de usuario, con su encabezado.
+     *
+     * @param nombreUsuario nombre que encabeza el menú
+     * @return menú vacío, listo para recibir opciones
+     */
+    JPopupMenu crearMenuUsuario(String nombreUsuario);
+
+    /**
+     * Agrega una opción al menú de usuario.
+     *
+     * @param menu   menú creado con {@link #crearMenuUsuario(String)}
+     * @param texto  texto de la opción
+     * @param accion qué ejecutar al elegirla
+     */
+    void agregarOpcionMenu(JPopupMenu menu, String texto, Runnable accion);
+
     /** @return color de mensajes de éxito */
     Color colorExito();
 
@@ -293,6 +352,81 @@ public interface IComponentesFactory {
 
     /** @return color de mensajes de error */
     Color colorError();
+
+    /**
+     * Crea el campo de la barra de búsqueda: más ancho que un campo de
+     * formulario y con una lupa como ícono de contexto.
+     *
+     * <p>Es el único sitio del proyecto donde un texto fantasma hace de
+     * etiqueta, y es el caso en que las guías de usabilidad lo admiten: un
+     * buscador es un campo único y familiar, así que no hay nada que recordar
+     * ni que verificar antes de enviar. En los formularios, la etiqueta sigue
+     * yendo fuera del campo.</p>
+     *
+     * @param textoFantasma guía gris mostrada mientras está vacío
+     * @return campo de búsqueda estilizado
+     */
+    CampoTextoConIcono crearCampoBusqueda(String textoFantasma);
+
+    /**
+     * Crea el botón de carrito de la barra superior, con su contador.
+     *
+     * @return botón con badge, listo para recibir su acción
+     */
+    BotonCarrito crearBotonCarrito();
+
+    /**
+     * Crea el recuadro de imagen de un producto.
+     *
+     * <p>Busca la referencia primero como recurso del propio programa
+     * ({@code /resources/images/productos/...}) y después como archivo en
+     * disco, de modo que un proveedor pueda registrar tanto una imagen
+     * incluida en la entrega como una ruta suya. Si no hay imagen, o no se
+     * puede leer, devuelve un recuadro con la inicial del producto: un hueco
+     * con algo dentro se lee mejor que un marco roto.</p>
+     *
+     * @param referencia ruta o nombre de archivo guardado en el producto
+     * @param nombre     nombre del producto, para la inicial de respaldo
+     * @param ancho      ancho del recuadro en píxeles
+     * @param alto       alto del recuadro en píxeles
+     * @return etiqueta con la imagen o con su respaldo
+     */
+    JLabel crearImagenProducto(String referencia, String nombre, int ancho, int alto);
+
+    /**
+     * Crea un gráfico de barras vacío, listo para recibir sus datos.
+     *
+     * @return gráfico con los colores del tema
+     */
+    GraficoBarras crearGraficoBarras();
+
+    /**
+     * Abre o cierra un panel lateral animando su ancho.
+     *
+     * <p>Mismo mecanismo que {@link #instalarEfectoZoomHover(JButton)}:
+     * interpola {@code setPreferredSize} + {@code revalidate()} con un
+     * {@code Timer}. No pinta nada a mano y el contenido del panel no se
+     * reacomoda, solo el espacio que ocupa.</p>
+     *
+     * @param panel        panel lateral a mover
+     * @param anchoDestino ancho final en píxeles; cero lo cierra
+     */
+    void deslizarPanelLateral(JPanel panel, int anchoDestino);
+
+    /**
+     * Crea una tabla de datos con el tema oscuro ya aplicado (celdas,
+     * cabecera, selección y separadores).
+     *
+     * <p>Existe por la misma razón que el resto de la fábrica: Nimbus pinta
+     * las celdas y la cabecera con sus propios <i>painters</i> claros e
+     * ignora {@code setBackground}. El remedio es instalar renderizadores
+     * opacos estándar del JDK ({@code DefaultTableCellRenderer}), no escribir
+     * un {@code ComponentUI} propio.</p>
+     *
+     * @param modelo datos y columnas de la tabla
+     * @return tabla estilizada, de una sola fila seleccionable a la vez
+     */
+    JTable crearTabla(TableModel modelo);
 
     /**
      * Tipografía unificada del tema.

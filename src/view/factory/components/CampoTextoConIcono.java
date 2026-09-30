@@ -1,12 +1,17 @@
 package view.factory.components;
 
 import java.awt.BorderLayout;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import view.factory.IComponentesFactory;
 import view.factory.icons.IconoCampo;
 import view.factory.utils.PlaceholderFocusListener;
@@ -63,6 +68,23 @@ public class CampoTextoConIcono extends JPanel {
         add(etiquetaIcono, BorderLayout.WEST);
         add(campo, BorderLayout.CENTER);
 
+        // El ícono y el relleno del panel también son zona de clic: sin esto,
+        // pulsar sobre la lupa de un buscador no enfocaría el campo y el texto
+        // fantasma se quedaría puesto.
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                campo.requestFocusInWindow();
+            }
+        });
+        etiquetaIcono.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                campo.requestFocusInWindow();
+            }
+        });
+        setCursor(new Cursor(Cursor.TEXT_CURSOR));
+
         fabrica.instalarAnilloEnfoque(this, campo);
         new PlaceholderFocusListener(campo, textoFantasma, fabrica.colorTexto(),
                 fabrica.colorTextoSuave(), null).activar();
@@ -71,6 +93,16 @@ public class CampoTextoConIcono extends JPanel {
     /** @return texto real digitado, o cadena vacía si solo se ve el texto fantasma */
     public String getTexto() {
         return PlaceholderFocusListener.textoReal(campo);
+    }
+
+    /**
+     * Carga un contenido en el campo, como si lo hubiera escrito el usuario.
+     * Lo usa el formulario del Proveedor al editar un producto existente.
+     *
+     * @param texto contenido a mostrar
+     */
+    public void setTexto(String texto) {
+        PlaceholderFocusListener.escribirTextoReal(campo, texto);
     }
 
     /** Vacía el campo y vuelve a mostrar el texto fantasma. */
@@ -93,6 +125,31 @@ public class CampoTextoConIcono extends JPanel {
     public final void cambiarIcono(IconoCampo.Tipo tipoIcono) {
         etiquetaIcono.setIcon(new IconoCampo(
                 tipoIcono, fabrica.colorTextoSuave(), fabrica.tamanoIconoCampo()));
+    }
+
+    /**
+     * Avisa cada vez que cambia lo escrito, para reaccionar en vivo (lo usa
+     * la barra de búsqueda del catálogo, que filtra mientras se teclea).
+     *
+     * @param alEscribir acción a ejecutar tras cada cambio del contenido
+     */
+    public void alEscribir(Runnable alEscribir) {
+        campo.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                alEscribir.run();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                alEscribir.run();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                alEscribir.run();
+            }
+        });
     }
 
     /** Lleva el cursor a este campo. */

@@ -39,8 +39,7 @@ import view.factory.IComponentesFactory;
  * con su propio tamaño), ahora ambas viven dentro de una única ventana
  * amplia (950×650) pensada para alojar el sidebar; no tiene sentido
  * redimensionar la ventana según la carta visible, así que
- * {@link #mostrarCarta(String)} solo cambia la carta, no el tamaño. El
- * usuario tampoco puede cambiarlo: la ventana no es redimensionable.</p>
+ * {@link #mostrarCarta(String)} solo cambia la carta, no el tamaño.</p>
  *
  * @author Ingeniería de Sistemas - Segundo Incremento Funcional
  * @version 2.0
@@ -75,11 +74,7 @@ public class MainFrame extends JFrame implements INavegador {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
         setSize(ANCHO_VENTANA, ALTO_VENTANA);
-        // Tamaño fijo: el sidebar y el formulario de Registro están medidos
-        // contra estos 950×650, y achicar la ventana recortaba la tarjeta.
-        // Sin redimensionar, Windows desactiva también el botón de maximizar;
-        // quedan minimizar y cerrar.
-        setResizable(false);
+        setMinimumSize(new Dimension(720, 520));
 
         cardLayout = new CardLayout();
         contenedorCartas = new JPanel(cardLayout);

@@ -76,9 +76,15 @@ public class PlaceholderFocusListener implements FocusListener {
 
     private void actualizarSegunContenido() {
         if (campo.getText().isEmpty()) {
+            // La bandera se marca ANTES de escribir el texto fantasma, no
+            // después: al escribirlo se dispara el evento del documento, y
+            // quien lo escuche (por ejemplo, el buscador del catálogo, que
+            // filtra mientras se teclea) llamaría a textoReal(...) cuando la
+            // bandera todavía dice "false" y se llevaría el propio texto
+            // fantasma como si el usuario lo hubiera escrito.
+            campo.putClientProperty(CLAVE_ACTIVO, Boolean.TRUE);
             campo.setText((String) campo.getClientProperty(CLAVE_TEXTO));
             campo.setForeground((Color) campo.getClientProperty(CLAVE_COLOR_FANTASMA));
-            campo.putClientProperty(CLAVE_ACTIVO, Boolean.TRUE);
         } else {
             campo.putClientProperty(CLAVE_ACTIVO, Boolean.FALSE);
         }
@@ -115,14 +121,38 @@ public class PlaceholderFocusListener implements FocusListener {
      * @param campo campo a reiniciar
      */
     public static void limpiarYMostrarPlaceholder(JTextField campo) {
-        campo.setText("");
         String texto = (String) campo.getClientProperty(CLAVE_TEXTO);
         Color colorFantasma = (Color) campo.getClientProperty(CLAVE_COLOR_FANTASMA);
         if (texto != null) {
+            campo.putClientProperty(CLAVE_ACTIVO, Boolean.TRUE);
             campo.setText(texto);
             campo.setForeground(colorFantasma);
-            campo.putClientProperty(CLAVE_ACTIVO, Boolean.TRUE);
+        } else {
+            campo.setText("");
         }
+    }
+
+    /**
+     * Escribe en el campo un contenido real del usuario (no un texto
+     * fantasma). Se usa al precargar un formulario de edición con los datos
+     * que ya existen.
+     *
+     * @param campo campo a llenar
+     * @param texto contenido a mostrar; vacío deja el campo con su fantasma
+     */
+    public static void escribirTextoReal(JTextField campo, String texto) {
+        if (texto == null || texto.isEmpty()) {
+            limpiarYMostrarPlaceholder(campo);
+            return;
+        }
+        // Igual que en actualizarSegunContenido: la bandera se ajusta antes de
+        // escribir, para que quien escuche el documento lea el estado correcto.
+        campo.putClientProperty(CLAVE_ACTIVO, Boolean.FALSE);
+        campo.setText(texto);
+        campo.setForeground((Color) campo.getClientProperty(CLAVE_COLOR_NORMAL));
+        // setText deja el cursor al final, y con un texto más largo que el
+        // campo se vería solo su cola. El usuario tiene que leer el principio.
+        campo.setCaretPosition(0);
     }
 
     /**

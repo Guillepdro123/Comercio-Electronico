@@ -27,6 +27,15 @@ import view.factory.IComponentesFactory;
  */
 public class SelectorSegmentado extends JPanel {
 
+    /**
+     * Máximo de segmentos por fila. Con más opciones el control se reparte en
+     * varias filas en vez de estrechar cada botón hasta recortar su texto: el
+     * Registro elige entre dos y cabe en una fila, pero el formulario del
+     * Proveedor elige entre cinco categorías.
+     */
+    private static final int SEGMENTOS_POR_FILA = 3;
+    private static final int SEPARACION_FILAS = 6;
+
     private final IComponentesFactory fabrica;
     private final JButton[] segmentos;
     private final String[] opciones;
@@ -38,12 +47,14 @@ public class SelectorSegmentado extends JPanel {
      * @param alCambiar acción a ejecutar cuando cambia la selección (puede ser {@code null})
      */
     public SelectorSegmentado(IComponentesFactory fabrica, String[] opciones, Runnable alCambiar) {
-        super(new GridLayout(1, opciones.length, 8, 0));
+        super(new GridLayout(0, Math.min(opciones.length, SEGMENTOS_POR_FILA), 8, SEPARACION_FILAS));
         this.fabrica = fabrica;
         this.opciones = opciones.clone();
         this.segmentos = new JButton[opciones.length];
         setOpaque(false);
-        setPreferredSize(new Dimension(fabrica.anchoCampo(), fabrica.altoCampo()));
+        int filas = (int) Math.ceil(opciones.length / (double) Math.min(opciones.length, SEGMENTOS_POR_FILA));
+        setPreferredSize(new Dimension(fabrica.anchoCampo(),
+                fabrica.altoCampo() * filas + SEPARACION_FILAS * (filas - 1)));
 
         for (int i = 0; i < opciones.length; i++) {
             final int indice = i;
@@ -63,6 +74,22 @@ public class SelectorSegmentado extends JPanel {
     /** @return texto de la opción actualmente seleccionada */
     public String getSeleccionado() {
         return opciones[indiceActivo];
+    }
+
+    /**
+     * Deja activa la opción indicada, si existe. La usa el formulario del
+     * Proveedor al editar un producto para que el control arranque en la
+     * categoría que ya tenía.
+     *
+     * @param opcion texto de la opción a activar
+     */
+    public void seleccionar(String opcion) {
+        for (int i = 0; i < opciones.length; i++) {
+            if (opciones[i].equals(opcion)) {
+                seleccionar(i);
+                return;
+            }
+        }
     }
 
     private void seleccionar(int indice) {
