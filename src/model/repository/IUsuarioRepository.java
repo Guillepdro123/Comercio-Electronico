@@ -28,15 +28,9 @@ public interface IUsuarioRepository {
      * acepta indistintamente instancias de {@code Cliente} o de
      * {@code Proveedor}.</p>
      *
-     * <p><b>Identificación y correo son únicos.</b> Toda implementación debe
-     * rechazar un usuario cuya identificación o cuyo correo (sin distinguir
-     * mayúsculas) ya estén registrados: el correo es la credencial del Login,
-     * y dos cuentas con el mismo correo dejarían a una de ellas sin acceso.</p>
-     *
      * @param usuario usuario a registrar; no debe ser {@code null}
      * @return {@code true} si el registro fue exitoso, {@code false} si el
      *         usuario es inválido o ya existía uno con la misma identificación
-     *         o el mismo correo
      */
     boolean registrar(Usuario usuario);
 

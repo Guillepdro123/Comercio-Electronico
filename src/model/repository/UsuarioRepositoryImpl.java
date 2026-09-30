@@ -34,8 +34,7 @@ public class UsuarioRepositoryImpl implements IUsuarioRepository {
     /**
      * {@inheritDoc}
      *
-     * <p>Rechaza valores nulos, identificaciones vacías, identificaciones
-     * repetidas y correos ya registrados.</p>
+     * <p>Rechaza valores nulos, identificaciones vacías y duplicados.</p>
      */
     @Override
     public boolean registrar(Usuario usuario) {
@@ -46,13 +45,6 @@ public class UsuarioRepositoryImpl implements IUsuarioRepository {
             return false;
         }
         if (existeIdentificacion(usuario.getIdentificacion())) {
-            return false;
-        }
-        // El correo es la llave del Login: si se repitiera, buscarPorCorreo
-        // devolvería siempre la primera cuenta y la segunda nunca podría
-        // entrar. Por eso la regla vive aquí, en el contrato, y no solo en el
-        // controlador: vale para cualquier alta, venga de donde venga.
-        if (buscarPorCorreo(usuario.getCorreo()) != null) {
             return false;
         }
         return usuarios.add(usuario);
