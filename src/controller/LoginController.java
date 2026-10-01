@@ -5,7 +5,10 @@ import java.awt.event.ActionListener;
 import javax.swing.JFrame;
 import app.Main;
 import model.entity.Usuario;
+import model.repository.IPedidoRepository;
+import model.repository.IProductoRepository;
 import model.repository.IUsuarioRepository;
+import service.INotificadorPedido;
 import view.auth.ILoginView;
 import view.auth.IRegistroUsuarioView;
 import view.dashboard.ClientDashboardFrame;
@@ -46,6 +49,9 @@ public class LoginController implements ActionListener {
 
     private final ILoginView vista;
     private final IUsuarioRepository repositorio;
+    private final IProductoRepository productos;
+    private final IPedidoRepository pedidos;
+    private final INotificadorPedido notificador;
     private final IComponentesFactory fabrica;
 
     /** Política de intentos fallidos; ver {@link ControlIntentosFallidos}. */
@@ -60,9 +66,14 @@ public class LoginController implements ActionListener {
      * @param fabrica     usada para construir la ventana de destino con el
      *                    mismo tema visual que el resto de la aplicación
      */
-    public LoginController(ILoginView vista, IUsuarioRepository repositorio, IComponentesFactory fabrica) {
+    public LoginController(ILoginView vista, IUsuarioRepository repositorio,
+                           IProductoRepository productos, IPedidoRepository pedidos,
+                           INotificadorPedido notificador, IComponentesFactory fabrica) {
         this.vista = vista;
         this.repositorio = repositorio;
+        this.productos = productos;
+        this.pedidos = pedidos;
+        this.notificador = notificador;
         this.fabrica = fabrica;
         this.vista.getBtnIniciarSesion().addActionListener(this);
     }
@@ -136,7 +147,7 @@ public class LoginController implements ActionListener {
     }
 
     /**
-     * Abre, centrada, la ventana de trabajo que corresponde al rol del
+     * Abre, maximizada, la ventana de trabajo que corresponde al rol del
      * usuario autenticado. La vista de destino no recibe el {@code Usuario}
      * (la vista no conoce el modelo): solo su nombre, ya extraído aquí. Le
      * entrega además la acción de "cerrar sesión": volver a ensamblar una
@@ -147,12 +158,27 @@ public class LoginController implements ActionListener {
      */
     private void abrirPanelPrincipal(Usuario usuario) {
         String nombre = usuario.getNombres();
-        Runnable alCerrarSesion = () -> Main.mostrarVentanaPrincipal(repositorio, fabrica);
+        Runnable alCerrarSesion = () -> Main.mostrarVentanaPrincipal(
+                repositorio, productos, pedidos, notificador, fabrica);
 
-        JFrame panelPrincipal = IRegistroUsuarioView.TIPO_PROVEEDOR.equals(usuario.getTipoCuenta())
-                ? new ProviderDashboardFrame(fabrica, nombre, alCerrarSesion)
-                : new ClientDashboardFrame(fabrica, nombre, alCerrarSesion);
-        panelPrincipal.setLocationRelativeTo(null);
-        panelPrincipal.setVisible(true);
+        // Cada rol abre su ventana y se le conecta su propio controlador: el
+        // Cliente coordina catálogo, carrito y compra; el Proveedor, la
+        // gestión de su catálogo y sus indicadores de venta.
+        if (IRegistroUsuarioView.TIPO_PROVEEDOR.equals(usuario.getTipoCuenta())) {
+            ProviderDashboardFrame panelProveedor =
+                    new ProviderDashboardFrame(fabrica, nombre, alCerrarSesion);
+            new ProveedorController(panelProveedor, productos, pedidos, usuario).iniciar();
+            mostrar(panelProveedor);
+            return;
+        }
+
+        ClientDashboardFrame panelCliente = new ClientDashboardFrame(fabrica, nombre, alCerrarSesion);
+        new ClienteController(panelCliente, productos, pedidos, notificador, usuario).iniciar();
+        mostrar(panelCliente);
+    }
+
+    private void mostrar(JFrame ventana) {
+        ventana.setLocationRelativeTo(null);
+        ventana.setVisible(true);
     }
 }

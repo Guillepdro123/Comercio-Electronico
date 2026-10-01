@@ -26,27 +26,17 @@ public class PoliticaPassword {
     /** Longitud mínima exigida. */
     public static final int LONGITUD_MINIMA = 7;
 
-    /** Longitudes que suman punto de complejidad. */
-    private static final int LONGITUD_HOLGADA = 10;
-    private static final int LONGITUD_LARGA = 14;
+    /** A partir de esta longitud, una contraseña que cumple todo se considera fuerte. */
+    private static final int LONGITUD_FUERTE = 12;
 
-    /** A partir de esta cantidad de caracteres distintos, la contraseña es variada. */
-    private static final int CARACTERES_DISTINTOS_RICOS = 10;
-
-    /** Puntos necesarios para considerarla segura (el máximo es 5). */
-    private static final int PUNTOS_PARA_FUERTE = 4;
-
-    /**
-     * Ejemplos que se muestran en el mensaje de error. No es la lista de lo
-     * que se acepta: ver {@link #tieneEspecial(String)}.
-     */
-    private static final String EJEMPLOS_ESPECIALES = "! @ # $ %";
+    /** Caracteres aceptados como "especiales". */
+    private static final String ESPECIALES = "!@#$%^&*()-_=+[]{};:,.<>/?\\|'\"`~";
 
     /** Niveles de fortaleza que puede reportar la política. */
     public enum Nivel {
         /** No cumple los requisitos: el registro la va a rechazar. */
         DEBIL("Insegura"),
-        /** Cumple los requisitos, pero es poco compleja. */
+        /** Cumple los requisitos, pero es corta. */
         MEDIA("Medianamente segura"),
         /** Cumple los requisitos y además es larga y variada. */
         FUERTE("Segura");
@@ -83,22 +73,13 @@ public class PoliticaPassword {
             return "La contraseña debe incluir al menos un número.";
         }
         if (!tieneEspecial(password)) {
-            return "La contraseña debe incluir al menos un carácter especial (por ejemplo: "
-                    + EJEMPLOS_ESPECIALES + ").";
+            return "La contraseña debe incluir al menos un carácter especial (por ejemplo: ! @ # $ %).";
         }
         return null;
     }
 
     /**
      * Califica la contraseña para el indicador que acompaña al campo.
-     *
-     * <p><b>Por complejidad, no solo por longitud.</b> Antes el nivel se
-     * decidía con un único corte de longitud (12 caracteres), y eso hacía que
-     * el nivel intermedio casi nunca se viera: al escribir seguido, la
-     * contraseña solía completar los requisitos cuando ya pasaba de 12
-     * caracteres, así que el indicador saltaba de "Insegura" directamente a
-     * "Segura". Ahora se suman puntos por los rasgos que de verdad cuestan de
-     * adivinar, y la longitud es solo uno de ellos.</p>
      *
      * @param password contraseña a evaluar
      * @return nivel correspondiente; {@code DEBIL} mientras no cumpla los requisitos
@@ -107,48 +88,8 @@ public class PoliticaPassword {
         if (validar(password) != null) {
             return Nivel.DEBIL;
         }
-        return puntosDeComplejidad(password) >= PUNTOS_PARA_FUERTE ? Nivel.FUERTE : Nivel.MEDIA;
-    }
-
-    /**
-     * Cuenta los rasgos que hacen más difícil de adivinar una contraseña que
-     * ya cumple los requisitos mínimos. El máximo son 5 puntos.
-     *
-     * <p>Mayúscula, número y carácter especial no suman: son obligatorios, así
-     * que toda contraseña válida los tiene y no distinguen a una de otra.</p>
-     *
-     * @param password contraseña ya validada
-     * @return puntuación de 0 a 5
-     */
-    private int puntosDeComplejidad(String password) {
-        int puntos = 0;
-        if (password.length() >= LONGITUD_HOLGADA) {
-            puntos++;
-        }
-        if (password.length() >= LONGITUD_LARGA) {
-            puntos++;
-        }
-        // Mezclar mayúsculas y minúsculas amplía el abanico de combinaciones.
-        if (tieneMinuscula(password)) {
-            puntos++;
-        }
-        // Repetir el mismo carácter alarga sin aportar: "Aaaaaaaa1!" es larga
-        // y pobre a la vez, y sin este punto quedaría igual que una variada.
-        if (caracteresDistintos(password) >= CARACTERES_DISTINTOS_RICOS) {
-            puntos++;
-        }
-        if (contarEspeciales(password) > 1) {
-            puntos++;
-        }
-        return puntos;
-    }
-
-    private long caracteresDistintos(String texto) {
-        return texto.chars().distinct().count();
-    }
-
-    private long contarEspeciales(String texto) {
-        return texto.chars().filter(c -> !Character.isLetterOrDigit(c)).count();
+        boolean larga = password.length() >= LONGITUD_FUERTE;
+        return larga && tieneMinuscula(password) ? Nivel.FUERTE : Nivel.MEDIA;
     }
 
     private boolean tieneMayuscula(String texto) {
@@ -163,21 +104,7 @@ public class PoliticaPassword {
         return texto.chars().anyMatch(Character::isDigit);
     }
 
-    /**
-     * Es especial todo lo que no sea una letra ni un número.
-     *
-     * <p>Antes se comparaba contra una lista fija de símbolos del teclado
-     * inglés, y eso dejaba fuera los que produce un teclado en español:
-     * {@code ¿}, {@code ¡}, {@code °}, {@code ´}, {@code €} y el espacio.
-     * Quien escribía "Clave2026¿" veía "Insegura" sin entender por qué, ya
-     * que el indicador solo muestra el nivel, no el motivo. Preguntar por lo
-     * que <em>no</em> es alfanumérico cubre cualquier distribución de teclado
-     * sin tener que mantener una lista.</p>
-     *
-     * <p>La {@code ñ} y las vocales acentuadas siguen contando como letras,
-     * que es lo correcto: son letras del alfabeto español, no símbolos.</p>
-     */
     private boolean tieneEspecial(String texto) {
-        return texto.chars().anyMatch(c -> !Character.isLetterOrDigit(c));
+        return texto.chars().anyMatch(c -> ESPECIALES.indexOf(c) >= 0);
     }
 }

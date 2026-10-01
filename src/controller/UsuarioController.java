@@ -125,14 +125,6 @@ public class UsuarioController implements ActionListener {
             return;
         }
 
-        // Se pregunta antes de construir la entidad para poder dar el mensaje
-        // exacto; el repositorio vuelve a rechazarlo de todos modos, así que
-        // la regla no depende de que este controlador se acuerde de ella.
-        if (repositorio.buscarPorCorreo(correo) != null) {
-            vista.mostrarError("Este correo ya está registrado en el sistema.");
-            return;
-        }
-
         // Polimorfismo: la variable es del tipo base, el objeto es de la
         // subclase concreta que corresponde a la selección del combo.
         Usuario usuario = construirUsuario(tipoCuenta, identificacion, nombres,
