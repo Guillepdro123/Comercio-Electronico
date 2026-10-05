@@ -625,6 +625,8 @@ Los datos se pierden al cerrar la aplicación y las contraseñas se guardan en t
 ## Autoría
 
 **Guillermo Luis Sandoval Ricardo**
+**Sebastian Uparela**
+**Juan Guillerme Noble**
 Ingeniería de Sistemas — Quinto semestre
 Corporación Universitaria Remington
 Sahagún, Córdoba

@@ -27,6 +27,15 @@ public class Producto {
     private int stock;
     private String imagen;
     private String correoProveedor;
+    /**
+     * Empresa o marca de quien lo vende, tal como la ve el comprador. Se
+     * guarda en el producto (y no se busca cada vez en la cuenta del
+     * proveedor) porque el catálogo se lee constantemente y la cuenta casi
+     * nunca cambia; cuando cambia, el caso de uso del catálogo la reescribe en
+     * todos sus productos. No va en el constructor para no romper los productos
+     * creados antes de que existiera.
+     */
+    private String marca = "";
 
     /**
      * @param id                 identificador único (lo asigna el repositorio)
@@ -36,7 +45,10 @@ public class Producto {
      * @param porcentajeDescuento descuento aplicado, de 0 a 100
      * @param categoria          categoría del catálogo
      * @param stock              unidades disponibles
-     * @param imagen             referencia de imagen (nombre de archivo o URL)
+     * @param imagen             referencia de imagen: nombre de una ilustración
+     *                           incluida en el programa o {@code img:<id>} de una
+     *                           imagen guardada en el almacén; nunca una ruta
+     *                           del disco de un equipo concreto
      * @param correoProveedor    proveedor dueño del producto, para su panel
      */
     public Producto(String id, String nombre, String descripcion, double precio,
@@ -81,6 +93,21 @@ public class Producto {
         }
         stock -= unidades;
         return true;
+    }
+
+    /**
+     * Devuelve al stock unidades que se habían descontado.
+     *
+     * <p>Es el reverso de {@link #descontarStock(int)} y existe para una sola
+     * situación: una compra de varios productos que descontó los primeros y
+     * no pudo con el siguiente. Esas unidades nunca llegaron a venderse.</p>
+     *
+     * @param unidades cantidad a devolver; si no es positiva no se hace nada
+     */
+    public void reponerStock(int unidades) {
+        if (unidades > 0) {
+            stock += unidades;
+        }
     }
 
     public String getId() {
@@ -153,5 +180,13 @@ public class Producto {
 
     public void setCorreoProveedor(String correoProveedor) {
         this.correoProveedor = correoProveedor;
+    }
+
+    public String getMarca() {
+        return marca;
+    }
+
+    public void setMarca(String marca) {
+        this.marca = marca == null ? "" : marca;
     }
 }

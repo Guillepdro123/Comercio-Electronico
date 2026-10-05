@@ -27,7 +27,12 @@ public class Pedido {
     private final List<LineaPedido> lineas;
     private final double total;
     private final String direccionEntrega;
-    private final LocalDateTime fecha;
+    private LocalDateTime fecha;
+    /**
+     * Cédula del comprador, para la factura. Fuera del constructor por la
+     * misma razón que la fecha: los pedidos guardados antes no la tienen.
+     */
+    private String documentoComprador = "";
 
     /**
      * @param id               identificador único (lo asigna el repositorio)
@@ -83,5 +88,37 @@ public class Pedido {
 
     public LocalDateTime getFecha() {
         return fecha;
+    }
+
+    public String getDocumentoComprador() {
+        return documentoComprador;
+    }
+
+    public void setDocumentoComprador(String documentoComprador) {
+        this.documentoComprador = documentoComprador == null ? "" : documentoComprador;
+    }
+
+    /**
+     * @param idProducto producto a buscar
+     * @return {@code true} si el pedido incluye ese producto; es lo que
+     *         acredita a alguien como comprador al dejar una reseña
+     */
+    public boolean incluyeProducto(String idProducto) {
+        return lineas.stream().anyMatch(linea -> linea.getIdProducto().equals(idProducto));
+    }
+
+    /**
+     * Restituye la fecha original al reconstruir un pedido guardado.
+     *
+     * <p>Existe por el mismo motivo que {@link #setId(String)}: al releer un
+     * pedido de la base de datos hay que devolverle <em>cuándo ocurrió</em>, y
+     * el constructor sella la hora actual porque su caso normal es una compra
+     * que acaba de suceder. No la uses para nada más: un pedido registrado no
+     * cambia de fecha.</p>
+     *
+     * @param fecha momento en que se registró la compra
+     */
+    public void setFecha(LocalDateTime fecha) {
+        this.fecha = fecha;
     }
 }

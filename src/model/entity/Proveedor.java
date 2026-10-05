@@ -1,18 +1,30 @@
 package model.entity;
 
 /**
- * Usuario que publica y abastece productos en la plataforma.
+ * Usuario que, además de comprar, publica y abastece productos en la
+ * plataforma (doble rol).
  *
- * <p><b>Herencia:</b> extiende {@link Usuario} y agrega el NIT, dato tributario
- * que identifica a la empresa proveedora.</p>
+ * <p><b>Herencia:</b> extiende {@link Usuario} y agrega lo que lo hace
+ * vendedor: el NIT y el nombre de la empresa o marca con la que aparecen sus
+ * productos. Como también compra, tiene su propia dirección de envío.</p>
  *
  * @author Ingeniería de Sistemas - Primer Incremento Funcional
- * @version 1.0
+ * @version 2.0
  */
 public class Proveedor extends Usuario {
 
     /** Número de Identificación Tributaria de la empresa proveedora. */
     private String nitEmpresa;
+
+    /**
+     * Nombre comercial con el que vende ("Supertecno"). Es lo que el comprador
+     * ve en cada producto suyo. No va en el constructor por la misma razón que
+     * el teléfono: las cuentas creadas antes no lo tenían.
+     */
+    private String nombreEmpresa = "";
+
+    /** Dirección a la que llegan sus propias compras. */
+    private String direccionEnvio = "";
 
     /** Constructor vacío requerido para instanciación flexible. */
     public Proveedor() {
@@ -42,6 +54,31 @@ public class Proveedor extends Usuario {
         this.nitEmpresa = nitEmpresa;
     }
 
+    @Override
+    public boolean puedeVender() {
+        return true;
+    }
+
+    @Override
+    public String getNombreEmpresa() {
+        return nombreEmpresa;
+    }
+
+    @Override
+    public void setNombreEmpresa(String nombreEmpresa) {
+        this.nombreEmpresa = nombreEmpresa == null ? "" : nombreEmpresa;
+    }
+
+    @Override
+    public String getDireccionEnvio() {
+        return direccionEnvio;
+    }
+
+    @Override
+    public void setDireccionEnvio(String direccionEnvio) {
+        this.direccionEnvio = direccionEnvio == null ? "" : direccionEnvio;
+    }
+
     // ---------------------------------------------------------------------
     // Implementación del contrato polimórfico
     // ---------------------------------------------------------------------
@@ -49,6 +86,11 @@ public class Proveedor extends Usuario {
     @Override
     public String getTipoCuenta() {
         return "Proveedor";
+    }
+
+    @Override
+    public void setDatoEspecifico(String valor) {
+        setNitEmpresa(valor);
     }
 
     @Override

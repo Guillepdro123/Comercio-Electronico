@@ -35,10 +35,12 @@ public class Cliente extends Usuario {
         this.direccionEnvio = direccionEnvio;
     }
 
+    @Override
     public String getDireccionEnvio() {
         return direccionEnvio;
     }
 
+    @Override
     public void setDireccionEnvio(String direccionEnvio) {
         this.direccionEnvio = direccionEnvio;
     }
@@ -50,6 +52,11 @@ public class Cliente extends Usuario {
     @Override
     public String getTipoCuenta() {
         return "Cliente";
+    }
+
+    @Override
+    public void setDatoEspecifico(String valor) {
+        setDireccionEnvio(valor);
     }
 
     @Override

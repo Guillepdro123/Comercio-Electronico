@@ -41,6 +41,23 @@ public class Carrito {
     }
 
     /**
+     * Fija la cantidad de un producto, en vez de sumarla como
+     * {@link #agregar(Producto, int)}. Es lo que hace el selector "- n +" del
+     * renglón: el usuario dice cuántas quiere, no cuántas más.
+     *
+     * @param producto producto del renglón
+     * @param cantidad unidades finales; cero o menos lo quita del carrito
+     */
+    public void establecerCantidad(Producto producto, int cantidad) {
+        if (cantidad <= 0) {
+            quitar(producto.getId());
+            return;
+        }
+        lineas.put(producto.getId(), new LineaPedido(
+                producto.getId(), producto.getNombre(), producto.getPrecioFinal(), cantidad));
+    }
+
+    /**
      * Quita por completo un producto del carrito.
      *
      * @param idProducto identificador del producto a quitar
