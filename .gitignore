@@ -1,2 +1,8 @@
-/nbproject/private/
+# La configuracion real lleva usuario y contrasena de Atlas: nunca se versiona.
+# El archivo de plantilla (config.properties.ejemplo) si.
+config.properties
+
+# Salida de compilacion
 /build/
+/dist/
+/nbproject/private/

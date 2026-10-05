@@ -1,4 +1,4 @@
-package model.repository;
+package model.repository.memoria;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import model.entity.Categoria;
 import model.entity.Producto;
+import model.repository.IProductoRepository;
 
 /**
  * Implementación en memoria de {@link IProductoRepository}.
@@ -108,10 +109,40 @@ public class ProductoRepositoryMemoria implements IProductoRepository {
         return existente != null && productos.remove(existente);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>{@code synchronized}: la compra corre en un hilo de fondo, y dos
+     * descuentos a la vez sobre el mismo producto podrían leer el mismo stock
+     * y vender dos veces la última unidad. Es la garantía que en MongoDB da el
+     * {@code $inc} con filtro; aquí la da el candado.</p>
+     */
     @Override
-    public boolean descontarStock(String id, int unidades) {
+    public synchronized boolean descontarStock(String id, int unidades) {
         Producto producto = buscarPorId(id);
         return producto != null && producto.descontarStock(unidades);
+    }
+
+    @Override
+    public synchronized void reponerStock(String id, int unidades) {
+        Producto producto = buscarPorId(id);
+        if (producto != null) {
+            producto.reponerStock(unidades);
+        }
+    }
+
+    @Override
+    public synchronized int actualizarVendedor(String correoAnterior, String correoNuevo,
+                                               String marca) {
+        int actualizados = 0;
+        for (Producto p : productos) {
+            if (p.getCorreoProveedor().equalsIgnoreCase(correoAnterior)) {
+                p.setCorreoProveedor(correoNuevo);
+                p.setMarca(marca);
+                actualizados++;
+            }
+        }
+        return actualizados;
     }
 
     /** Quita acentos y mayúsculas para comparar como espera un buscador. */
@@ -156,5 +187,9 @@ public class ProductoRepositoryMemoria implements IProductoRepository {
         guardar(new Producto(null, "Balón de fútbol profesional",
                 "Cosido a máquina, tamaño 5, aprobado para competencia.",
                 95000, 0, Categoria.DEPORTE, 30, "balon.png", proveedor));
+        // La tienda de ejemplo vende con una marca, como cualquier proveedor.
+        for (Producto p : productos) {
+            p.setMarca("Supertecno");
+        }
     }
 }

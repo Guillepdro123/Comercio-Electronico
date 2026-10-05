@@ -1,9 +1,10 @@
-package model.repository;
+package model.repository.memoria;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import model.entity.Usuario;
+import model.repository.IUsuarioRepository;
 
 /**
  * Implementación en memoria de {@link IUsuarioRepository}.
@@ -34,20 +35,66 @@ public class UsuarioRepositoryImpl implements IUsuarioRepository {
     /**
      * {@inheritDoc}
      *
-     * <p>Rechaza valores nulos, identificaciones vacías y duplicados.</p>
+     * <p>Rechaza valores nulos, identificaciones o correos vacíos, y una
+     * identificación o un correo ya registrados. El correo se compara sin
+     * distinguir mayúsculas, igual que {@link #buscarPorCorreo(String)}: si
+     * no, "Ana@x.com" y "ana@x.com" serían dos cuentas y el Login entraría en
+     * cualquiera de las dos.</p>
      */
     @Override
     public boolean registrar(Usuario usuario) {
         if (usuario == null) {
             return false;
         }
-        if (usuario.getIdentificacion() == null || usuario.getIdentificacion().trim().isEmpty()) {
+        if (usuario.getIdentificacion() == null || usuario.getIdentificacion().trim().isEmpty()
+                || usuario.getCorreo() == null || usuario.getCorreo().trim().isEmpty()) {
             return false;
         }
-        if (existeIdentificacion(usuario.getIdentificacion())) {
+        if (existeIdentificacion(usuario.getIdentificacion())
+                || buscarPorCorreo(usuario.getCorreo()) != null) {
             return false;
         }
         return usuarios.add(usuario);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>La lista guarda las mismas instancias que entregó
+     * {@code buscarPorCorreo}, así que quien edita un usuario ya modificó el
+     * objeto que está aquí dentro. Este método existe igualmente porque el
+     * controlador no debe dar por supuesto ese detalle: el día que detrás haya
+     * MongoDB, esta llamada será la que escriba el documento.</p>
+     */
+    @Override
+    public boolean actualizar(Usuario usuario) {
+        if (usuario == null || !usuarios.contains(usuario)) {
+            return false;
+        }
+        return !correoDeOtraCuenta(usuario);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean cedulaEnUso(String cedula, String identificacionPropia) {
+        for (Usuario u : usuarios) {
+            if (!u.getIdentificacion().equals(identificacionPropia)
+                    && (cedula.equals(u.getCedula()) || cedula.equals(u.getIdentificacion()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** @return {@code true} si el correo del usuario ya lo usa otra cuenta */
+    private boolean correoDeOtraCuenta(Usuario usuario) {
+        for (Usuario u : usuarios) {
+            if (u != usuario && u.getCorreo() != null
+                    && u.getCorreo().equalsIgnoreCase(usuario.getCorreo())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

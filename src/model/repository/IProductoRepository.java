@@ -73,9 +73,41 @@ public interface IProductoRepository {
     /**
      * Descuenta unidades del stock tras una compra.
      *
+     * <p><b>Comprobar y descontar deben ser una sola operación atómica</b>:
+     * si hubiera un "hay suficiente?" y después un "descuenta", dos compras
+     * simultáneas podrían pasar las dos la comprobación y vender más de lo que
+     * hay. Por eso el resultado de este método es la única respuesta válida a
+     * "¿había existencias?".</p>
+     *
      * @param id       identificador del producto
      * @param unidades cantidad vendida
-     * @return {@code true} si había existencias suficientes y se descontó
+     * @return {@code true} si había existencias suficientes y se descontó;
+     *         {@code false} si no, y entonces el stock queda intacto
      */
     boolean descontarStock(String id, int unidades);
+
+    /**
+     * Devuelve unidades al stock. Solo para deshacer los descuentos de una
+     * compra que no se pudo completar.
+     *
+     * @param id       identificador del producto
+     * @param unidades cantidad a devolver
+     */
+    void reponerStock(String id, int unidades);
+
+    /**
+     * Reescribe el vendedor de todos los productos de un proveedor: su correo
+     * (si cambió el de la cuenta) y su marca.
+     *
+     * <p>Aparece con el nombre de empresa: la marca se guarda en cada producto
+     * para no consultarla en cada lectura del catálogo, así que cuando el
+     * proveedor la cambia hay que llevarla a sus productos. De paso cubre el
+     * cambio de correo, que antes dejaba huérfanos sus productos.</p>
+     *
+     * @param correoAnterior correo con el que están guardados sus productos
+     * @param correoNuevo    correo actual de la cuenta
+     * @param marca          nombre de empresa actual
+     * @return cuántos productos se actualizaron
+     */
+    int actualizarVendedor(String correoAnterior, String correoNuevo, String marca);
 }

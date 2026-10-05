@@ -1,0 +1,38 @@
+# Configuracion de MongoDB Atlas.
+#
+# COPIA este archivo como "config.properties" (sin ".ejemplo") y rellena la
+# cadena con tus credenciales. El archivo real NO debe versionarse ni
+# entregarse: una contrasena escrita en un archivo del proyecto termina
+# copiada en cualquier copia del proyecto.
+#
+# Si "config.properties" no existe, la aplicacion arranca igual con el
+# almacen en memoria de siempre y lo avisa por consola. No hace falta
+# MongoDB para usarla.
+
+mongodb.uri=mongodb+srv://USUARIO:CONTRASENA@TU-CLUSTER.mongodb.net/?retryWrites=true&w=majority
+mongodb.base=comercio_electronico
+
+# ---------------------------------------------------------------------------
+# Resend (correo de confirmacion de compra). Opcional: sin clave, la compra se
+# registra igual y el correo que se habria enviado se imprime por consola.
+# ---------------------------------------------------------------------------
+resend.api.key=re_TU_CLAVE_AQUI
+resend.remitente=Comercio Electronico <onboarding@resend.dev>
+# Opcional: a quien le llega la alerta de cada venta. Si falta, al remitente.
+resend.alertas=ventas@tu-dominio.com
+
+# ---------------------------------------------------------------------------
+# Acceso con Google (boton "Continuar con Google"). Opcional: sin estas claves
+# el boton no aparece y el Login con contrasena funciona igual.
+#
+# Como obtenerlas, en https://console.cloud.google.com :
+#   1. APIs y servicios > Pantalla de consentimiento de OAuth: tipo "Externo".
+#      Mientras este en modo "Prueba", agrega tu correo en "Usuarios de prueba".
+#   2. APIs y servicios > Credenciales > Crear credenciales > ID de cliente de
+#      OAuth > tipo de aplicacion "App de escritorio".
+#   3. Copia aqui el ID de cliente y el secreto.
+# No hace falta registrar ninguna URL de redireccion: un cliente de escritorio
+# acepta http://127.0.0.1 en cualquier puerto, que es lo que usa la aplicacion.
+# ---------------------------------------------------------------------------
+google.client.id=TU_ID_DE_CLIENTE.apps.googleusercontent.com
+google.client.secret=TU_SECRETO_DE_CLIENTE

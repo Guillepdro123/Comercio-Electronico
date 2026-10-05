@@ -1,9 +1,10 @@
-package model.repository;
+package model.repository.memoria;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import model.entity.Pedido;
+import model.repository.IPedidoRepository;
 
 /**
  * Implementación en memoria de {@link IPedidoRepository}.

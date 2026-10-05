@@ -28,9 +28,17 @@ public interface IUsuarioRepository {
      * acepta indistintamente instancias de {@code Cliente} o de
      * {@code Proveedor}.</p>
      *
+     * <p><b>Toda implementación debe rechazar una identificación o un correo
+     * ya registrados</b> (el correo, sin distinguir mayúsculas). Esta es la
+     * última palabra sobre la unicidad y vale para cualquier forma de dar de
+     * alta una cuenta, sea el formulario o el acceso con Google. Quien quiera
+     * explicar al usuario el motivo exacto debe comprobarlo antes con
+     * {@link #buscarPorCorreo(String)}: aquí solo se devuelve si se pudo.</p>
+     *
      * @param usuario usuario a registrar; no debe ser {@code null}
      * @return {@code true} si el registro fue exitoso, {@code false} si el
      *         usuario es inválido o ya existía uno con la misma identificación
+     *         o el mismo correo
      */
     boolean registrar(Usuario usuario);
 
@@ -43,4 +51,33 @@ public interface IUsuarioRepository {
      * @return el usuario encontrado, o {@code null} si no existe ninguno con ese correo
      */
     Usuario buscarPorCorreo(String correo);
+
+    /**
+     * Guarda los cambios de un usuario ya registrado.
+     *
+     * <p>Se incorpora al aparecer el caso de uso "editar perfil", siguiendo la
+     * regla del proyecto de no declarar operaciones antes de que alguien las
+     * necesite. Rechaza el cambio si el correo nuevo ya lo usa otra cuenta: el
+     * correo es con lo que se inicia sesión, y dos cuentas con el mismo correo
+     * dejarían el acceso ambiguo.</p>
+     *
+     * @param usuario usuario con los datos ya modificados
+     * @return {@code true} si se actualizó; {@code false} si no estaba
+     *         registrado o el correo pertenece a otra cuenta
+     */
+    boolean actualizar(Usuario usuario);
+
+    /**
+     * Dice si una cédula ya pertenece a otra cuenta, como cédula o como
+     * identificación.
+     *
+     * <p>Aparece con la cédula de las cuentas de Google: dos personas no
+     * pueden facturar con el mismo documento.</p>
+     *
+     * @param cedula               documento a comprobar
+     * @param identificacionPropia cuenta que lo quiere usar (no cuenta como
+     *                             "otra")
+     * @return {@code true} si lo tiene otra cuenta
+     */
+    boolean cedulaEnUso(String cedula, String identificacionPropia);
 }
