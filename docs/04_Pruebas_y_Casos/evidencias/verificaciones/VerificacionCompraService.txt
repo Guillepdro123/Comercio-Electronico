@@ -1,0 +1,16 @@
+Compra correcta
+  OK    queda registrada
+  OK    descuenta la cantidad exacta de cada producto
+  OK    usa la dirección de la cuenta
+  OK    avisa al comprador y a la tienda
+Compra sin existencias (todo o nada)
+  OK    dice qué producto faltó
+  OK    devuelve al stock lo ya descontado
+  OK    no registra pedido ni envía correos
+Si falla el registro del pedido
+  OK    el fallo llega a quien llamó
+  OK    y el stock vuelve entero
+Historial del cliente
+  OK    devuelve las compras de ese correo
+
+TODO CORRECTO

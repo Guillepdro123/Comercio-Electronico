@@ -1,0 +1,4 @@
+Dos compradores por la última unidad, 20 rondas
+  OK    en cada ronda compra exactamente uno, el stock queda en 0 y hay un solo pedido
+
+TODO CORRECTO

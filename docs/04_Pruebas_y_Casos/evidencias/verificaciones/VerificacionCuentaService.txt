@@ -1,0 +1,25 @@
+Registro por formulario
+  OK    rechaza identificación con letras
+  OK    rechaza un correo mal formado
+  OK    rechaza una contraseña que no cumple la política
+  OK    nada de eso creó cuentas ni envió bienvenidas
+  OK    un registro válido crea la cuenta
+  OK    la contraseña se guarda cifrada, nunca en claro
+  OK    envía la bienvenida
+  OK    el correo repetido se rechaza con su mensaje
+  OK    la identificación repetida también
+Alta con Google
+  OK    crea la cuenta con el rol elegido
+  OK    sin contraseña propia y con identificación google-<id>
+  OK    repetir la misma cuenta de Google se rechaza
+Edición del perfil
+  OK    rechaza dejar el nombre vacío
+  OK    rechaza un teléfono de 3 dígitos
+  OK    rechaza un correo que ya tiene otra cuenta
+  OK    acepta conservar el correo propio
+  OK    cambiar contraseña exige la actual correcta
+  OK    la nueva y su repetición deben coincidir
+  OK    cambia la contraseña cuando todo está bien
+  OK    una cuenta de Google no puede ponerse contraseña
+
+TODO CORRECTO

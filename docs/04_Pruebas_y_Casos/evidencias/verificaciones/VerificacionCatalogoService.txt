@@ -1,0 +1,27 @@
+Validación del formulario
+  OK    rechaza el nombre vacío
+  OK    rechaza un precio que no es número
+  OK    rechaza un descuento de 120
+  OK    rechaza stock negativo
+  OK    nada de eso avisó al catálogo ni guardó
+Publicar, editar y eliminar
+  OK    publica y devuelve el producto
+  OK    acepta el precio con coma decimal
+  OK    avisó al catálogo una vez por alta
+  OK    edita y guarda los datos nuevos
+  OK    editar con datos inválidos no toca lo guardado
+  OK    elimina
+  OK    eliminar dos veces avisa en vez de fallar
+  OK    editar algo borrado avisa en vez de fallar
+Cifras de venta
+  OK    solo suma los renglones propios, no el total del pedido
+  OK    cuenta un pedido con venta, no dos
+  OK    no incluye productos de otro proveedor
+  OK    detecta que hay ventas
+  OK    ticket promedio = ingresos / pedidos con venta
+  OK    el producto estrella es el de mayor ingreso
+  OK    sin pedidos, cifras en cero y sin ventas
+  OK    sin pedidos, ticket en cero y sin producto estrella
+  OK    un proveedor sin catálogo no rompe nada
+
+TODO CORRECTO

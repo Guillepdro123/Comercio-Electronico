@@ -1,0 +1,15 @@
+Ejecución de las verificaciones automáticas
+Fecha: 04/10/2026 12:12
+JDK: openjdk version "26.0.2" 2026-07-21
+
+VerificacionAutenticacionService        13 OK  0 FALLAS  código de salida 0
+VerificacionCatalogoService             22 OK  0 FALLAS  código de salida 0
+VerificacionImagenesPortables            9 OK  0 FALLAS  código de salida 0
+VerificacionCompraService               10 OK  0 FALLAS  código de salida 0
+VerificacionCompraConcurrente            1 OK  0 FALLAS  código de salida 0
+VerificacionCuentaService               20 OK  0 FALLAS  código de salida 0
+VerificacionDobleRol                    13 OK  0 FALLAS  código de salida 0
+VerificacionResenaService                9 OK  0 FALLAS  código de salida 0
+VerificacionClienteController           17 OK  0 FALLAS  código de salida 0
+VerificacionUsuarioAdapter               4 OK  0 FALLAS  código de salida 0
+VerificacionConmutadorTema               5 OK  0 FALLAS  código de salida 0

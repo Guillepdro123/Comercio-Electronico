@@ -1,0 +1,14 @@
+Importar al publicar
+  OK    una ruta absoluta se convierte en img:<id>
+  OK    la imagen guardada se redujo a 800 px de lado
+  OK    una ilustración incluida se deja tal cual
+  OK    una ruta de otro equipo con nombre de ilustración queda en el nombre
+  OK    una ruta inexistente se rechaza al publicar
+Normalizar el catálogo al arrancar
+  OK    corrige las 2 rutas y pone la marca al producto que no la tenía
+  OK    no queda ninguna ruta local en el catálogo
+  OK    una segunda normalización no cambia nada
+Marca del vendedor
+  OK    cambiar correo y empresa mueve sus productos
+
+TODO CORRECTO

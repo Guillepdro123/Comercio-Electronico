@@ -1,0 +1,20 @@
+Credenciales
+  OK    pide los dos campos si falta alguno
+  OK    acepta la contraseña correcta comparando contra el hash
+  OK    reconoce el correo sin distinguir mayúsculas
+  OK    devuelve la cuenta autenticada
+Cuenta de Google
+  OK    avisa de que esa cuenta entra con Google
+  OK    escribir la marca como contraseña tampoco entra
+Intentos fallidos y bloqueo
+  OK    el primer fallo avisa que quedan 2 intentos
+  OK    el segundo avisa que queda 1 intento
+  OK    el tercero bloquea, y por 30 s
+  OK    tras liberar el bloqueo se puede reintentar
+Solo cuentan los fallos consecutivos
+  OK    un acceso correcto reinicia el contador
+  OK    cada pantalla de acceso lleva su propio contador
+Reconocer a quien vuelve de Google
+  OK    encuentra la cuenta por su correo
+
+TODO CORRECTO

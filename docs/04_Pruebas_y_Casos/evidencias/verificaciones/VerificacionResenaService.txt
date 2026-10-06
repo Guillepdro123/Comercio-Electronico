@@ -1,0 +1,14 @@
+Quién puede opinar
+  OK    quien no lo compró no puede reseñar
+  OK    quien lo compró sí
+  OK    el vendedor no reseña lo suyo
+Estrellas y comentario
+  OK    sin estrellas no se publica
+  OK    seis estrellas tampoco
+  OK    un comentario de 301 caracteres se rechaza
+  OK    publica con 4 estrellas y 300 caracteres
+Una por persona
+  OK    una segunda reseña reemplaza a la primera
+  OK    el resumen del catálogo da promedio y cantidad
+
+TODO CORRECTO

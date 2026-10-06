@@ -1,0 +1,25 @@
+Checkout de una cuenta de Google sin datos
+  OK    confirmar pide el formulario de datos y no compra
+  OK    una cédula inválida deja el formulario abierto con el error
+  OK    con datos válidos se cierra el formulario y la compra sigue sola
+Reseña desde la ficha
+  OK    la ficha llega con el permiso para opinar (lo compró)
+  OK    sin estrellas muestra el error en la ficha
+  OK    publicada, la sección se actualiza con 1 reseña de 5
+  OK    la tarjeta del catálogo ya muestra la calificación y la marca
+  OK    en un producto que no compró, la ficha da el motivo
+Pop-up promocional
+        809 de 2000 accesos ofrecieron promoción
+  OK    solo se ofrecen productos con descuento y existencias
+  OK    sale cerca del 40 % de las veces
+  OK    al reconstruir la tienda en la misma sesión nunca sale
+Banner
+  OK    lleva las 4 mejores ofertas, de mayor a menor descuento
+  OK    sin descuentos no hay pop-up ni banner
+Cantidades del carrito
+  OK    agregar 2 unidades
+  OK    cambiar a 3, con el stock como tope
+  OK    pasar del stock avisa y no cambia
+  OK    cantidad 0 quita el renglón
+
+TODO CORRECTO

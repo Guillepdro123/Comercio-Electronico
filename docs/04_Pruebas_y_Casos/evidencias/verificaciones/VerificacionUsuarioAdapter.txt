@@ -1,0 +1,8 @@
+Documentos que ya existían
+  OK    un Cliente de formulario produce el documento de siempre (7 campos)
+  OK    un proveedor guardado antes se lee con empresa y dirección vacías
+Campos nuevos
+  OK    la cédula de una cuenta de Google viaja en el documento
+  OK    empresa, dirección y NIT del proveedor viajan en el documento
+
+TODO CORRECTO

@@ -1,0 +1,18 @@
+Proveedor con empresa
+  OK    el registro de proveedor exige la empresa
+  OK    con empresa se registra, la guarda y puede vender
+  OK    el cliente no necesita empresa y no vende
+  OK    la cédula de una cuenta de formulario es su identificación
+Cuenta de Google y checkout
+  OK    una cuenta de Google nace sin datos de envío
+  OK    el perfil lo avisa
+  OK    la compra se rechaza sin cédula ni dirección y no toca el stock
+  OK    una cédula con puntos se rechaza
+  OK    la cédula de otra cuenta se rechaza
+  OK    una dirección demasiado corta se rechaza
+  OK    con datos válidos se completan
+  OK    ya puede comprar y el pedido lleva su cédula y dirección
+El proveedor también compra
+  OK    sin dirección propia no puede comprar
+
+TODO CORRECTO

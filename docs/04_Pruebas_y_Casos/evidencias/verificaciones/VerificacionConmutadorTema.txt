@@ -1,0 +1,9 @@
+Cambio a oscuro
+  OK    arranca en claro
+  OK    pasa a oscuro
+  OK    el mismo objeto Color ya entregado da el fondo oscuro
+  OK    instala FlatDarkLaf
+Vuelta a claro
+  OK    vuelve a claro con su fondo
+
+TODO CORRECTO

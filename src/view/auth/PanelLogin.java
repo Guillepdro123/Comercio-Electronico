@@ -5,7 +5,6 @@ import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.awt.Window;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -18,6 +17,7 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
+import net.miginfocom.swing.MigLayout;
 import view.core.INavegador;
 import view.core.MainFrame;
 import view.factory.IComponentesFactory;
@@ -51,10 +51,9 @@ public class PanelLogin extends JPanel implements ILoginView {
     private CampoTextoConIcono txtCorreo;
     private CampoPasswordConToggle campoPassword;
     private JButton btnIniciarSesion;
+    private JLabel separadorGoogle;
+    private JButton btnGoogle;
     private JLabel lblMensaje;
-
-    /** Contador interno de filas del formulario. */
-    private int fila = 0;
 
     /**
      * @param fabrica   fábrica de la que se toman todos los componentes del formulario
@@ -106,43 +105,53 @@ public class PanelLogin extends JPanel implements ILoginView {
 
     /** Tarjeta con los campos del formulario y el botón de acceso. */
     private JPanel construirTarjeta() {
-        JPanel tarjeta = fabrica.crearTarjeta(new GridBagLayout());
+        // MigLayout para el interior de la tarjeta, igual que en Registro: dos
+        // pares etiqueta/campo en una sola columna. La columna se declara una
+        // vez ("[grow,fill]") y cada componente solo dice su separación.
+        JPanel tarjeta = fabrica.crearTarjeta(
+                new MigLayout("wrap 1, insets 0, gapy 0, fillx", "[grow,fill]"));
+        // La fábrica ya le puso fondo y borde; se combina con el relleno
+        // interno en vez de reemplazar el borde con setBorder(...).
         tarjeta.setBorder(BorderFactory.createCompoundBorder(
-                tarjeta.getBorder(), new EmptyBorder(28, 32, 28, 32)));
-
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.anchor = GridBagConstraints.WEST;
+                tarjeta.getBorder(), new EmptyBorder(20, 28, 16, 28)));
 
         txtCorreo = fabrica.crearCampoTexto("correo@empresa.com", IconoCampo.Tipo.CORREO);
         campoPassword = fabrica.crearCampoPassword("Tu contraseña");
 
-        agregarFila(tarjeta, gbc, fabrica.crearEtiqueta("Correo electrónico"), txtCorreo);
-        agregarFila(tarjeta, gbc, fabrica.crearEtiqueta("Contraseña"), campoPassword);
+        agregarFila(tarjeta, fabrica.crearEtiqueta("Correo electrónico"), txtCorreo);
+        agregarFila(tarjeta, fabrica.crearEtiqueta("Contraseña"), campoPassword);
 
         btnIniciarSesion = fabrica.crearBotonPrimario("INICIAR SESIÓN");
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(6, 0, 0, 0);
-        tarjeta.add(btnIniciarSesion, gbc);
+        tarjeta.add(btnIniciarSesion, "gaptop 6");
 
-        lblMensaje = fabrica.crearEtiqueta(" ");
-        lblMensaje.setHorizontalAlignment(SwingConstants.CENTER);
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(6, 0, 0, 0);
-        tarjeta.add(lblMensaje, gbc);
+        lblMensaje = fabrica.crearAlerta();
+        tarjeta.add(lblMensaje, "gaptop 6");
+
+        // Acceso con Google: nace oculto y solo aparece si hay credenciales
+        // (ver activarAccesoGoogle). "hidemode 3" hace que, oculto, no ocupe
+        // sitio: sin él MigLayout reservaría el hueco y la tarjeta tendría un
+        // vacío sin explicación.
+        separadorGoogle = new JLabel("o", SwingConstants.CENTER);
+        separadorGoogle.setFont(fabrica.fuente(Font.PLAIN, 12));
+        separadorGoogle.setForeground(fabrica.colorTextoSuave());
+        separadorGoogle.setVisible(false);
+        tarjeta.add(separadorGoogle, "gaptop 2, hidemode 3");
+
+        btnGoogle = fabrica.crearBotonGoogle("Continuar con Google");
+        btnGoogle.setVisible(false);
+        tarjeta.add(btnGoogle, "gaptop 6, hidemode 3");
 
         JLabel enlaceRegistro = fabrica.crearEnlaceSecundario("¿No tienes cuenta? Regístrate");
+        // 'mousePressed' y no 'mouseClicked': el segundo no salta si el ratón
+        // se desplaza un píxel entre pulsar y soltar, y el enlace se quedaba
+        // sin responder de vez en cuando.
         enlaceRegistro.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
+            public void mousePressed(MouseEvent e) {
                 navegador.mostrarCarta(PanelRegistroUsuario.NOMBRE_CARTA);
             }
         });
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(10, 0, 0, 0);
-        tarjeta.add(enlaceRegistro, gbc);
+        tarjeta.add(enlaceRegistro, "gaptop 10");
 
         return tarjeta;
     }
@@ -162,14 +171,19 @@ public class PanelLogin extends JPanel implements ILoginView {
     }
 
     /** Agrega al formulario una etiqueta y, debajo, su campo correspondiente. */
-    private void agregarFila(JPanel panel, GridBagConstraints gbc, JLabel etiqueta, Component campo) {
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(0, 0, 4, 0);
-        panel.add(etiqueta, gbc);
-
-        gbc.gridy = fila++;
-        gbc.insets = new Insets(0, 0, 10, 0);
-        panel.add(campo, gbc);
+    /**
+     * Agrega al formulario una etiqueta y, debajo, su campo.
+     *
+     * <p>Las separaciones son las mismas que tenía con
+     * {@code GridBagConstraints} (4px bajo la etiqueta, 10px bajo el campo).</p>
+     *
+     * @param panel    tarjeta del formulario, con {@link MigLayout} en una columna
+     * @param etiqueta rótulo de la fila
+     * @param campo    control de captura
+     */
+    private void agregarFila(JPanel panel, JLabel etiqueta, Component campo) {
+        panel.add(etiqueta, "gapbottom 4");
+        panel.add(campo, "gapbottom 10");
     }
 
     // ---------------------------------------------------------------------
@@ -193,8 +207,7 @@ public class PanelLogin extends JPanel implements ILoginView {
 
     @Override
     public void mostrarError(String mensaje) {
-        lblMensaje.setForeground(fabrica.colorError());
-        lblMensaje.setText(mensaje);
+        fabrica.pintarAlerta(lblMensaje, mensaje, true);
     }
 
     @Override
@@ -206,7 +219,7 @@ public class PanelLogin extends JPanel implements ILoginView {
     public void limpiarFormulario() {
         txtCorreo.limpiar();
         campoPassword.limpiar();
-        lblMensaje.setText(" ");
+        fabrica.pintarAlerta(lblMensaje, null, true);
         txtCorreo.enfocar();
     }
 
@@ -227,7 +240,7 @@ public class PanelLogin extends JPanel implements ILoginView {
             }
             ((Timer) e.getSource()).stop();
             habilitarEntradas(true);
-            lblMensaje.setText(" ");
+            fabrica.pintarAlerta(lblMensaje, null, true);
             txtCorreo.enfocar();
             alDesbloquear.run();
         });
@@ -241,14 +254,76 @@ public class PanelLogin extends JPanel implements ILoginView {
         btnIniciarSesion.setEnabled(habilitado);
     }
 
+    /**
+     * Pinta la cuenta atrás del bloqueo.
+     *
+     * <p>Va como <em>aviso</em> y no como error: el usuario no se ha
+     * equivocado ahora, está esperando a que se libere el acceso. El texto y
+     * los tiempos los sigue decidiendo el controlador
+     * ({@code ControlIntentosFallidos}); esta vista solo los muestra.</p>
+     */
     private void mostrarCuentaRegresiva(int segundos) {
-        lblMensaje.setForeground(fabrica.colorError());
-        lblMensaje.setText("Demasiados intentos. Espera " + segundos + " s.");
+        fabrica.pintarAlerta(lblMensaje,
+                "Demasiados intentos. Espera " + segundos + " s.", false);
     }
 
     @Override
     public void mostrarTransicion(Runnable alSiguientePaso) {
         fabrica.mostrarTransicion(this, "Iniciando sesión...", alSiguientePaso);
+    }
+
+    @Override
+    public <T> void ejecutarEnSegundoPlano(String mensaje,
+                                           java.util.function.Supplier<T> tarea,
+                                           java.util.function.Consumer<T> alTerminar) {
+        fabrica.ejecutarConCarga(this, mensaje, tarea, alTerminar,
+                fallo -> mostrarError("No se pudo completar la operación: "
+                        + fallo.getMessage()));
+    }
+
+    @Override
+    public void activarAccesoGoogle(Runnable accion) {
+        btnGoogle.addActionListener(e -> accion.run());
+        separadorGoogle.setVisible(true);
+        btnGoogle.setVisible(true);
+        revalidate();
+    }
+
+    @Override
+    public <T> void ejecutarCancelable(String mensaje,
+                                       java.util.function.Supplier<T> tarea,
+                                       java.util.function.Consumer<T> alTerminar,
+                                       Runnable alCancelar) {
+        fabrica.pintarAlerta(lblMensaje, null, true);
+        fabrica.ejecutarCancelable(this, mensaje, tarea,
+                resultado -> {
+                    traerAlFrente();
+                    alTerminar.accept(resultado);
+                },
+                // Los mensajes de esta espera ya vienen redactados para el
+                // usuario (ver IAutenticadorExterno): se muestran tal cual.
+                fallo -> {
+                    traerAlFrente();
+                    mostrarError(fallo.getMessage());
+                },
+                alCancelar);
+    }
+
+    /**
+     * El usuario viene del navegador: sin esto, la ventana seguiría detrás
+     * y parecería que no pasó nada. Windows puede limitarse a hacer
+     * parpadear la barra de tareas en vez de traerla, y eso también sirve.
+     */
+    private void traerAlFrente() {
+        Window ventana = SwingUtilities.getWindowAncestor(this);
+        if (ventana != null) {
+            ventana.toFront();
+        }
+    }
+
+    @Override
+    public String elegirRol(String nombre) {
+        return new DialogoElegirRol(fabrica, this, nombre).elegir();
     }
 
     @Override

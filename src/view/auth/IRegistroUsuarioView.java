@@ -21,9 +21,16 @@ import javax.swing.JButton;
  */
 public interface IRegistroUsuarioView {
 
-    /** Opciones del selector de tipo de cuenta. */
-    String TIPO_CLIENTE = "Cliente";
-    String TIPO_PROVEEDOR = "Proveedor";
+    /**
+     * Opciones del selector de tipo de cuenta.
+     *
+     * <p>Salen de {@link aplicacion.cuenta.TipoCuenta} en vez de repetir el
+     * texto: el rol es del negocio (es lo que responde
+     * {@code Usuario.getTipoCuenta()} y lo que se guarda en MongoDB), y la
+     * pantalla solo lo muestra. Así existen escritos una sola vez.</p>
+     */
+    String TIPO_CLIENTE = aplicacion.cuenta.TipoCuenta.CLIENTE;
+    String TIPO_PROVEEDOR = aplicacion.cuenta.TipoCuenta.PROVEEDOR;
 
     /** @return identificación digitada, sin espacios sobrantes */
     String getIdentificacion();
@@ -78,6 +85,9 @@ public interface IRegistroUsuarioView {
     /** @return valor del campo dinámico (dirección o NIT, según el combo) */
     String getDatoAdicional();
 
+    /** @return nombre de la empresa o marca; vacío si la cuenta es de Cliente */
+    String getNombreEmpresa();
+
     /** @return botón principal, para que el controlador le registre su listener */
     JButton getBtnRegistrar();
 
@@ -99,4 +109,23 @@ public interface IRegistroUsuarioView {
 
     /** Vacía todos los campos y devuelve el foco al primero. */
     void limpiarFormulario();
+
+    /**
+     * Ejecuta un trabajo lento fuera del hilo de eventos y continúa después.
+     *
+     * <p>Mismo contrato que en {@code ILoginView} y en los paneles de rol: el
+     * controlador dice <em>qué</em> tarda (buscar el correo, cifrar la
+     * contraseña y guardar en MongoDB Atlas) y qué hacer con el resultado; la
+     * vista decide <em>cómo</em> se ve la espera.</p>
+     *
+     * @param <T>        lo que el trabajo devuelve al terminar
+     * @param mensaje    qué se está haciendo, para el indicador
+     * @param tarea      trabajo lento; corre FUERA del hilo de eventos, así que
+     *                   no debe tocar componentes Swing
+     * @param alTerminar qué hacer con el resultado, ya de vuelta en el hilo de
+     *                   eventos
+     */
+    <T> void ejecutarEnSegundoPlano(String mensaje,
+                                    java.util.function.Supplier<T> tarea,
+                                    java.util.function.Consumer<T> alTerminar);
 }

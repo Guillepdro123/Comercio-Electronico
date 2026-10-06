@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -61,6 +62,7 @@ public class MainFrame extends JFrame implements INavegador {
     private final JPanel contenedorCartas;
     private final JButton btnIrLogin;
     private final JButton btnIrRegistro;
+    private Runnable accionCambiarTema = () -> { };
 
     /**
      * @param fabrica fábrica de componentes; define los colores del sidebar,
@@ -112,7 +114,7 @@ public class MainFrame extends JFrame implements INavegador {
 
         JLabel lblBienvenida = new JLabel("Bienvenido");
         lblBienvenida.setFont(fabrica.fuente(Font.BOLD, 18));
-        lblBienvenida.setForeground(fabrica.colorTexto());
+        lblBienvenida.setForeground(fabrica.colorTextoSidebar());
         lblBienvenida.setAlignmentX(Component.CENTER_ALIGNMENT);
         lblBienvenida.setBorder(new EmptyBorder(14, 0, 36, 0));
 
@@ -126,7 +128,35 @@ public class MainFrame extends JFrame implements INavegador {
         sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
         sidebar.add(btnIrRegistro);
         sidebar.add(Box.createVerticalGlue());
+        sidebar.add(construirConmutadorTema());
         return sidebar;
+    }
+
+    /**
+     * Botón de modo claro/oscuro al pie del sidebar. El texto ("Modo oscuro" /
+     * "Modo claro") va dentro del propio botón, así toda la fila se pulsa y la
+     * fábrica lo actualiza sola al cambiar de tema.
+     *
+     * <p>Qué pasa al pulsarlo lo decide quien ensambla la ventana
+     * ({@link #alCambiarTema(Runnable)}): esta clase solo lo dispara.</p>
+     */
+    private JPanel construirConmutadorTema() {
+        JButton boton = fabrica.crearBotonTema(true, true);
+        boton.addActionListener(e -> accionCambiarTema.run());
+
+        JPanel fila = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        fila.setOpaque(false);
+        fila.setAlignmentX(Component.CENTER_ALIGNMENT);
+        fila.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+        fila.add(boton);
+        return fila;
+    }
+
+    /**
+     * @param accion qué hacer al pulsar el conmutador de tema
+     */
+    public void alCambiarTema(Runnable accion) {
+        this.accionCambiarTema = accion;
     }
 
     /**

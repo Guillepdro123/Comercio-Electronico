@@ -14,7 +14,6 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 import net.miginfocom.swing.MigLayout;
 import view.core.INavegador;
@@ -56,12 +55,17 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
     private SelectorSegmentado selectorTipoCuenta;
     private JLabel lblCampoDinamico;
     private CampoTextoConIcono txtCampoDinamico;
+    private JLabel lblEmpresa;
+    private CampoTextoConIcono txtEmpresa;
+    private JPanel filaDinamica;
     private JButton btnRegistrar;
     private JLabel lblMensaje;
     private JLabel lblFortaleza;
 
     /** Diámetro del punto del semáforo de fortaleza. */
     private static final int DIAMETRO_PUNTO_FORTALEZA = 9;
+    /** Ancho de cada campo cuando NIT y empresa comparten fila (300 - 10 de separación). */
+    private static final int MITAD_CAMPO = 145;
 
 
     /**
@@ -143,7 +147,18 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
 
         lblCampoDinamico = fabrica.crearEtiqueta("Dirección de envío");
         txtCampoDinamico = fabrica.crearCampoTexto("Ej: Calle 10 #5-20, Bogotá", IconoCampo.Tipo.UBICACION);
-        agregarFila(tarjeta, lblCampoDinamico, txtCampoDinamico);
+        lblEmpresa = fabrica.crearEtiqueta("Empresa o marca");
+        txtEmpresa = fabrica.crearCampoTexto("Ej: Supertecno", IconoCampo.Tipo.ETIQUETA);
+        // Fila propia que cambia de contenido según el tipo de cuenta: una
+        // columna (dirección) para el Cliente y dos (NIT y empresa, lado a
+        // lado) para el Proveedor. Lado a lado y no en otra fila porque el
+        // formulario ya usa casi todo el alto de la ventana (ver el
+        // presupuesto de alto en CLAUDE.md).
+        filaDinamica = new JPanel(new MigLayout("insets 0, gapx 10, gapy 0, wrap 2",
+                "[" + MITAD_CAMPO + "!][" + MITAD_CAMPO + "!]"));
+        filaDinamica.setOpaque(false);
+        tarjeta.add(filaDinamica, "gapbottom 6");
+        actualizarCampoDinamico();
 
         btnRegistrar = fabrica.crearBotonPrimario("REGISTRAR USUARIO");
         tarjeta.add(btnRegistrar, "gaptop 6");
@@ -151,14 +166,15 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
         // Mensaje inline de validación: reemplaza a la antigua barra de
         // estado gris. El éxito se confirma aparte con un JOptionPane
         // (ver mostrarExito).
-        lblMensaje = fabrica.crearEtiqueta(" ");
-        lblMensaje.setHorizontalAlignment(SwingConstants.CENTER);
+        lblMensaje = fabrica.crearAlerta();
         tarjeta.add(lblMensaje, "gaptop 4");
 
         JLabel enlaceLogin = fabrica.crearEnlaceSecundario("¿Ya tienes cuenta? Inicia sesión");
+        // Mismo motivo que en el Login: 'mouseClicked' es frágil ante un
+        // arrastre de un píxel.
         enlaceLogin.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
+            public void mousePressed(MouseEvent e) {
                 navegador.mostrarCarta(PanelLogin.NOMBRE_CARTA);
             }
         });
@@ -231,17 +247,30 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
      * la vista.
      */
     private void actualizarCampoDinamico() {
+        if (filaDinamica == null) {
+            return;
+        }
+        filaDinamica.removeAll();
         if (TIPO_PROVEEDOR.equals(getTipoCuentaSeleccionado())) {
-            lblCampoDinamico.setText("NIT de la empresa");
+            lblCampoDinamico.setText("NIT");
             txtCampoDinamico.setToolTipText("Número de Identificación Tributaria del proveedor");
-            txtCampoDinamico.cambiarTextoFantasma("Ej: 900123456-7");
+            txtCampoDinamico.cambiarTextoFantasma("900123456-7");
             txtCampoDinamico.cambiarIcono(IconoCampo.Tipo.EMPRESA);
+            txtEmpresa.setToolTipText("Nombre con el que tus productos aparecerán en la tienda");
+            filaDinamica.add(lblCampoDinamico, "gapbottom 3");
+            filaDinamica.add(lblEmpresa, "gapbottom 3");
+            filaDinamica.add(txtCampoDinamico, "w " + MITAD_CAMPO + "!");
+            filaDinamica.add(txtEmpresa, "w " + MITAD_CAMPO + "!");
         } else {
             lblCampoDinamico.setText("Dirección de envío");
             txtCampoDinamico.setToolTipText("Dirección donde el cliente recibirá sus pedidos");
             txtCampoDinamico.cambiarTextoFantasma("Ej: Calle 10 #5-20, Bogotá");
             txtCampoDinamico.cambiarIcono(IconoCampo.Tipo.UBICACION);
+            filaDinamica.add(lblCampoDinamico, "span 2, gapbottom 3");
+            filaDinamica.add(txtCampoDinamico, "span 2, growx");
         }
+        filaDinamica.revalidate();
+        filaDinamica.repaint();
     }
 
     // ---------------------------------------------------------------------
@@ -303,14 +332,26 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
     }
 
     @Override
+    public String getNombreEmpresa() {
+        return TIPO_PROVEEDOR.equals(getTipoCuentaSeleccionado()) ? txtEmpresa.getTexto() : "";
+    }
+
+    @Override
     public JButton getBtnRegistrar() {
         return btnRegistrar;
     }
 
     @Override
     public void mostrarError(String mensaje) {
-        lblMensaje.setForeground(fabrica.colorError());
-        lblMensaje.setText(mensaje);
+        fabrica.pintarAlerta(lblMensaje, mensaje, true);
+    }
+
+    @Override
+    public <T> void ejecutarEnSegundoPlano(String mensaje,
+                                           java.util.function.Supplier<T> tarea,
+                                           java.util.function.Consumer<T> alTerminar) {
+        fabrica.ejecutarConCarga(this, mensaje, tarea, alTerminar,
+                fallo -> mostrarError("No se pudo completar el registro: " + fallo.getMessage()));
     }
 
     @Override
@@ -329,7 +370,8 @@ public class PanelRegistroUsuario extends JPanel implements IRegistroUsuarioView
         txtCorreo.limpiar();
         campoPassword.limpiar();
         txtCampoDinamico.limpiar();
-        lblMensaje.setText(" ");
+        txtEmpresa.limpiar();
+        fabrica.pintarAlerta(lblMensaje, null, true);
         txtIdentificacion.enfocar();
     }
 }
