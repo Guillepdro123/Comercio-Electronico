@@ -1,11 +1,13 @@
 package view.factory.components;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
@@ -14,6 +16,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import view.factory.IComponentesFactory;
 import view.factory.icons.IconoCampo;
+import view.factory.utils.BordeRedondeado;
 import view.factory.utils.PlaceholderFocusListener;
 
 /**
@@ -47,8 +50,25 @@ public class CampoTextoConIcono extends JPanel {
      * @param tipoIcono     glifo que acompaña al campo
      */
     public CampoTextoConIcono(IComponentesFactory fabrica, String textoFantasma, IconoCampo.Tipo tipoIcono) {
+        this(fabrica, textoFantasma, tipoIcono, null);
+    }
+
+    /**
+     * Variante para un campo que no vive sobre un panel, como el buscador de
+     * la barra superior.
+     *
+     * @param fabrica       fábrica de la que se toman colores, tipografía y el borde
+     * @param textoFantasma guía gris mostrada cuando el campo está vacío
+     * @param tipoIcono     glifo que acompaña al campo
+     * @param colorExterior fondo real del contenedor, con el que el borde
+     *                      redondeado tapa sus esquinas; {@code null} = un panel
+     */
+    public CampoTextoConIcono(IComponentesFactory fabrica, String textoFantasma,
+                              IconoCampo.Tipo tipoIcono, Color colorExterior) {
         super(new BorderLayout());
         this.fabrica = fabrica;
+        // Se declara antes de instalar el anillo de foco, que es quien lo lee.
+        putClientProperty(BordeRedondeado.PROPIEDAD_COLOR_EXTERIOR, colorExterior);
 
         etiquetaIcono = new JLabel();
         etiquetaIcono.setBorder(new EmptyBorder(0, 0, 0, 8));
@@ -61,7 +81,10 @@ public class CampoTextoConIcono extends JPanel {
         campo.setFont(fabrica.fuente(Font.PLAIN, 14));
         // El borde lo pinta este panel, no el campo, para que el ícono quede
         // dentro del mismo marco redondeado.
-        campo.setBorder(null);
+        // Borde vacío y no null: al cambiar de tema, updateUI instala el
+        // borde de FlatLaf en un campo sin borde, y se vería un marco dentro
+        // del marco redondeado.
+        campo.setBorder(BorderFactory.createEmptyBorder());
 
         setBackground(fabrica.colorCampo());
         setPreferredSize(new Dimension(fabrica.anchoCampo(), fabrica.altoCampo()));

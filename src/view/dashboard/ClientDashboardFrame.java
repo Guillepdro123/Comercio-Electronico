@@ -172,8 +172,8 @@ public class ClientDashboardFrame extends JFrame implements IClienteDashboardVie
     }
 
     /** Avatar con iniciales que despliega el menú de usuario. */
-    private JLabel construirAvatar(Runnable alCerrarSesion) {
-        JLabel avatar = fabrica.crearAvatar(iniciales(nombreUsuario), TAM_AVATAR);
+    private JButton construirAvatar(Runnable alCerrarSesion) {
+        JButton avatar = fabrica.crearAvatar(iniciales(nombreUsuario), TAM_AVATAR);
         avatar.setToolTipText(nombreUsuario);
 
         JPopupMenu menu = fabrica.crearMenuUsuario(nombreUsuario);

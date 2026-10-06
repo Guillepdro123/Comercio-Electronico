@@ -5,6 +5,7 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import javax.swing.JButton;
+import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
@@ -64,7 +65,10 @@ public class CampoPasswordConToggle extends JPanel {
         campo.setFont(fabrica.fuente(Font.PLAIN, 14));
         // El borde lo dibuja este panel, no el campo, para que el ícono y el
         // botón queden dentro del mismo marco redondeado.
-        campo.setBorder(null);
+        // Borde vacío y no null: al cambiar de tema, updateUI instala el
+        // borde de FlatLaf en un campo sin borde, y se vería un marco dentro
+        // del marco redondeado.
+        campo.setBorder(BorderFactory.createEmptyBorder());
 
         JLabel etiquetaIcono = new JLabel(new IconoCampo(
                 IconoCampo.Tipo.CANDADO, fabrica.colorTextoSuave(), fabrica.tamanoIconoCampo()));

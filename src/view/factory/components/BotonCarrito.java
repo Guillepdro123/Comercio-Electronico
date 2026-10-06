@@ -49,8 +49,15 @@ public class BotonCarrito extends JLayeredPane {
      * @param fabrica fábrica de la que salen colores, tipografía y bordes
      */
     public BotonCarrito(IComponentesFactory fabrica) {
-        boton = new JButton(new IconoCarrito(fabrica.colorTexto(), TAM_ICONO));
-        boton.setUI(new BasicButtonUI());
+        boton = new JButton(new IconoCarrito(fabrica.colorTextoSidebar(), TAM_ICONO)) {
+            // Al cambiar de tema, updateComponentTreeUI le pondría el UI de
+            // FlatLaf; este botón es un ícono plano sobre la barra y conserva
+            // el delegado básico.
+            @Override
+            public void updateUI() {
+                setUI(new BasicButtonUI());
+            }
+        };
         boton.setBackground(fabrica.colorSidebar());
         boton.setOpaque(true);
         boton.setBorderPainted(false);
@@ -61,7 +68,7 @@ public class BotonCarrito extends JLayeredPane {
 
         badge = new JLabel("", SwingConstants.CENTER);
         badge.setFont(fabrica.fuente(Font.BOLD, 10));
-        badge.setForeground(fabrica.colorTexto());
+        badge.setForeground(fabrica.colorTextoSobreAcento());
         badge.setBackground(fabrica.colorAcento());
         badge.setOpaque(true);
         // El color exterior tiene que ser el fondo real del padre (la barra
@@ -71,10 +78,13 @@ public class BotonCarrito extends JLayeredPane {
         badge.setBounds(ANCHO - TAM_BADGE - 6, 0, TAM_BADGE, TAM_BADGE);
         badge.setVisible(false);
         // El badge tapa parcialmente al botón; sin este clic delegado, pulsar
-        // justo sobre el número no abriría el carrito.
+        // justo sobre el número no abriría el carrito. Se escucha
+        // 'mousePressed' y no 'mouseClicked': el segundo no se dispara si el
+        // ratón se mueve un píxel entre pulsar y soltar, que es el mismo
+        // fallo intermitente que tenía el avatar.
         badge.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
+            public void mousePressed(MouseEvent e) {
                 boton.doClick();
             }
         });

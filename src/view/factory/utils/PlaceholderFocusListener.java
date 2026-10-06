@@ -121,14 +121,16 @@ public class PlaceholderFocusListener implements FocusListener {
      * @param campo campo a reiniciar
      */
     public static void limpiarYMostrarPlaceholder(JTextField campo) {
+        campo.setText("");
         String texto = (String) campo.getClientProperty(CLAVE_TEXTO);
         Color colorFantasma = (Color) campo.getClientProperty(CLAVE_COLOR_FANTASMA);
         if (texto != null) {
+            // Bandera antes de escribir, como en actualizarSegunContenido: si
+            // no, quien escucha el documento (el buscador filtra mientras se
+            // teclea) leía el texto fantasma como búsqueda y vaciaba el catálogo.
             campo.putClientProperty(CLAVE_ACTIVO, Boolean.TRUE);
             campo.setText(texto);
             campo.setForeground(colorFantasma);
-        } else {
-            campo.setText("");
         }
     }
 

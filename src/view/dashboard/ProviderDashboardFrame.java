@@ -154,8 +154,8 @@ public class ProviderDashboardFrame extends JFrame implements IProveedorDashboar
         return barra;
     }
 
-    private JLabel construirAvatar(Runnable alCerrarSesion) {
-        JLabel avatar = fabrica.crearAvatar(iniciales(nombreUsuario), TAM_AVATAR);
+    private JButton construirAvatar(Runnable alCerrarSesion) {
+        JButton avatar = fabrica.crearAvatar(iniciales(nombreUsuario), TAM_AVATAR);
         avatar.setToolTipText(nombreUsuario);
 
         JPopupMenu menu = fabrica.crearMenuUsuario(nombreUsuario);

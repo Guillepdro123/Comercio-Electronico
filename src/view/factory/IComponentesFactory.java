@@ -7,6 +7,7 @@ import java.awt.LayoutManager;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
@@ -18,9 +19,11 @@ import view.factory.charts.GraficoBarras;
 import view.factory.components.BotonCarrito;
 import view.factory.components.CampoPasswordConToggle;
 import view.factory.components.CampoTextoConIcono;
+import view.factory.components.SelectorEstrellas;
 import view.factory.components.SelectorSegmentado;
 import view.factory.effects.IndicadorCarga;
 import view.factory.icons.IconoCampo;
+import view.factory.promo.BannerRotativo;
 
 /**
  * Contrato de una fábrica de componentes Swing con estilo unificado.
@@ -183,6 +186,33 @@ public interface IComponentesFactory {
     JButton crearBotonPrimario(String texto);
 
     /**
+     * Crea el botón de las llamadas a la acción de compra ("Confirmar compra",
+     * "Ver oferta"): mismo tamaño y comportamiento que el primario, pero en el
+     * color destacado (naranja).
+     *
+     * <p>Se separa del primario a propósito: el morado es la marca y sirve
+     * para los formularios; el naranja contrasta con él y señala dónde se
+     * compra, que es la acción que una tienda quiere que no pase desapercibida.</p>
+     *
+     * @param texto texto del botón
+     * @return botón estilizado, con el realce de hover ya instalado
+     */
+    JButton crearBotonDestacado(String texto);
+
+    /**
+     * Crea el botón "Continuar con Google": del mismo tamaño que el botón
+     * principal, pero oscuro y con borde, con la "G" en sus colores.
+     *
+     * <p>Es secundario a propósito. El botón de acento sigue siendo el de la
+     * contraseña; dos botones igual de llamativos en la misma tarjeta harían
+     * dudar de cuál es el principal.</p>
+     *
+     * @param texto texto del botón
+     * @return botón estilizado
+     */
+    JButton crearBotonGoogle(String texto);
+
+    /**
      * Crea una etiqueta con apariencia de enlace (para acciones secundarias
      * como "¿Ya tienes cuenta? Inicia sesión").
      *
@@ -237,16 +267,13 @@ public interface IComponentesFactory {
     void mostrarDialogoExito(Component padre, String mensaje);
 
     /**
-     * Instala un efecto de "zoom" suave en un botón ya construido: crece
-     * unos píxeles al pasar el mouse y vuelve a su tamaño original al
-     * salir, animado con un {@link javax.swing.Timer}. Centraliza aquí la
-     * técnica para que cualquier botón (los que arma la fábrica o los que
-     * arma {@code MainFrame} para su sidebar) la reutilice sin duplicar
-     * lógica de animación.
+     * Igual que {@link #mostrarDialogoExito(Component, String)}, pero para un
+     * aviso o un error: título "Aviso" e ícono de advertencia.
      *
-     * @param boton botón ya estilizado (con su tamaño final ya asignado)
+     * @param padre   componente sobre el que se centra el diálogo
+     * @param mensaje texto a mostrar
      */
-    void instalarEfectoZoomHover(JButton boton);
+    void mostrarDialogoAviso(Component padre, String mensaje);
 
     /** @return color de fondo general de la ventana */
     Color colorFondo();
@@ -287,14 +314,55 @@ public interface IComponentesFactory {
     Color colorBorde();
 
     /**
-     * Crea el avatar circular con las iniciales del usuario, para la esquina
-     * del panel.
+     * Crea el avatar circular con las iniciales del usuario.
      *
-     * @param iniciales una o dos letras
+     * <p><b>Devuelve un {@link JButton} y no una etiqueta.</b> Es un control
+     * que se pulsa para abrir un menú, así que debe comportarse como tal: como
+     * {@code JLabel} había que escucharlo con {@code mouseClicked}, que
+     * <em>no se dispara si el ratón se mueve un píxel entre pulsar y soltar</em>
+     * —comprobado: con un arrastre de 1px el menú no abría—. Siendo botón,
+     * cualquier pulsación en cualquier punto del componente dispara su acción,
+     * y de paso gana los estados de hover y pulsado de FlatLaf.</p>
+     *
+     * @param iniciales una o dos letras del nombre
      * @param tamano    diámetro en píxeles
-     * @return etiqueta lista para agregarse a la barra superior
+     * @return botón circular listo para recibir su {@code ActionListener}
      */
-    JLabel crearAvatar(String iniciales, int tamano);
+    JButton crearAvatar(String iniciales, int tamano);
+
+    /**
+     * Instala el realce de expansión al pasar el mouse: el botón crece unos
+     * píxeles hacia fuera y vuelve suavemente al salir.
+     *
+     * <p><b>No toca el tamaño del componente.</b> Lo que se anima es el margen
+     * que FlatLaf reserva alrededor del relleno ({@code focusWidth}), de modo
+     * que crece el área pintada y no el rectángulo que ocupa: el gestor de
+     * disposición sigue reservándole lo mismo y nada se mueve alrededor. Una
+     * versión anterior de este efecto animaba {@code preferredSize} y hacía
+     * saltar el formulario entero bajo el cursor; no vuelvas a ese camino.</p>
+     *
+     * <p>Mientras el botón tiene el foco no se expande: ese hueco es el anillo
+     * de foco y cederlo dejaría al usuario de teclado sin referencia.</p>
+     *
+     * @param boton botón al que instalar el realce
+     */
+    void instalarEfectoExpansionHover(JButton boton);
+
+    /**
+     * Hace que un campo suelte el foco cuando se pulsa fuera de él.
+     *
+     * <p>Swing solo mueve el foco al pulsar sobre algo <em>enfocable</em>. Si
+     * el usuario pulsa en una zona vacía —el fondo del catálogo, por ejemplo—
+     * el campo se queda con el cursor parpadeando indefinidamente. Esto vigila
+     * las pulsaciones y, cuando una cae fuera del campo teniéndolo él
+     * enfocado, se lo retira.</p>
+     *
+     * <p>La vigilancia se conecta y se desconecta sola según el campo esté o
+     * no en pantalla, así que cerrar la ventana no deja nada colgando.</p>
+     *
+     * @param campo campo que debe soltar el foco al pulsar fuera
+     */
+    void instalarLiberacionDeFoco(JComponent campo);
 
     /**
      * Envuelve un contenido en un área desplazable con el estilo del tema.
@@ -303,6 +371,18 @@ public interface IComponentesFactory {
      * @return panel desplazable, sin borde y con el fondo del tema
      */
     JScrollPane crearScroll(JComponent contenido);
+
+    /**
+     * Muestra contenido propio en un diálogo con un único botón para
+     * cerrarlo, para lo que solo se consulta (como "Mis compras").
+     *
+     * @param padre       componente sobre el que se centra
+     * @param titulo      título de la ventana
+     * @param contenido   panel a mostrar dentro del diálogo
+     * @param textoCerrar texto del botón
+     */
+    void mostrarDialogoContenido(Component padre, String titulo, JComponent contenido,
+                                 String textoCerrar);
 
     /**
      * Muestra un diálogo de aceptar/cancelar con contenido propio, usando el
@@ -353,6 +433,110 @@ public interface IComponentesFactory {
     /** @return color de mensajes de error */
     Color colorError();
 
+    /** @return color del texto sobre el sidebar y la barra superior oscura */
+    Color colorTextoSidebar();
+
+    /** @return color del texto sobre el acento o el destacado (insignias, botones) */
+    Color colorTextoSobreAcento();
+
+    /** @return color informativo (azul), para datos que no son ni éxito ni alerta */
+    Color colorInformacion();
+
+    /** @return color de las llamadas a la acción de compra (naranja) */
+    Color colorDestacado();
+
+    /**
+     * Crea el banner rotativo de la parte superior del catálogo.
+     *
+     * @return banner sin diapositivas (muestra una de bienvenida) hasta que se
+     *         le pasen con {@code mostrar(...)}
+     */
+    BannerRotativo crearBannerRotativo();
+
+    /**
+     * Muestra una ventana emergente promocional: cabecera con degradado y
+     * botón de cerrar, el contenido que entrega la vista y un botón de acción.
+     *
+     * <p>Es modal, sin barra de título del sistema, y se cierra con la X, con
+     * Escape o con la acción. A diferencia de
+     * {@link #mostrarDialogoConfirmacion(Component, String, JComponent, String)},
+     * no ofrece "Cancelar": una promoción se descarta cerrándola, no
+     * rechazándola.</p>
+     *
+     * @param padre       componente sobre el que se centra
+     * @param titulo      frase de la cabecera
+     * @param subtitulo   línea de apoyo de la cabecera
+     * @param cuerpo      contenido (imagen, precio...), armado por la vista
+     * @param textoAccion texto del botón de acción
+     * @return {@code true} si se pulsó la acción; {@code false} si se cerró
+     */
+    boolean mostrarVentanaPromocional(Component padre, String titulo, String subtitulo,
+                                      JComponent cuerpo, String textoAccion);
+
+    /**
+     * Crea la fila de cinco estrellas de una calificación (admite medias
+     * estrellas).
+     *
+     * @param calificacion promedio de 0 a 5
+     * @param tamano       lado de cada estrella en píxeles
+     * @return ícono listo para un {@code JLabel}
+     */
+    Icon crearEstrellas(double calificacion, int tamano);
+
+    /**
+     * @param llena  {@code true} para una estrella rellena
+     * @param tamano lado en píxeles
+     * @return una estrella suelta (los botones del selector de calificación)
+     */
+    Icon crearEstrella(boolean llena, int tamano);
+
+    /**
+     * @return control para elegir de 1 a 5 estrellas, sin ninguna elegida
+     */
+    SelectorEstrellas crearSelectorEstrellas();
+
+    /**
+     * Crea el botón que alterna entre modo claro y oscuro. Muestra el tema al
+     * que lleva (luna en el claro, sol en el oscuro) y lo actualiza solo tras
+     * cada cambio, igual que su ayuda y su texto.
+     *
+     * @param sobreBarraOscura {@code true} si va en la barra superior o el
+     *                         sidebar, que son oscuros en los dos temas
+     * @param conTexto         {@code true} para acompañar el ícono con
+     *                         "Modo oscuro" / "Modo claro"
+     * @return botón sin acción; quien lo coloca decide qué hace
+     */
+    JButton crearBotonTema(boolean sobreBarraOscura, boolean conTexto);
+
+    /** @return {@code true} si el tema actual es el oscuro */
+    boolean esTemaOscuro();
+
+    /**
+     * Cambia al otro tema (claro ↔ oscuro) en caliente, en todas las ventanas
+     * abiertas, sin cerrar ninguna.
+     *
+     * <p>Instala la variante de FlatLaf que corresponde, actualiza los UI con
+     * {@code SwingUtilities.updateComponentTreeUI} y repinta, con un fundido
+     * para que el cambio no sea un salto. Los colores que reparte la fábrica
+     * son vivos (siguen a la paleta vigente), así que los componentes ya
+     * creados cambian también. La sesión, el carrito y lo escrito quedan
+     * intactos: no se reconstruye nada.</p>
+     */
+    void alternarTema();
+
+    /**
+     * Le da a la fábrica de dónde leer las imágenes guardadas en el almacén
+     * ({@code img:<id>}).
+     *
+     * <p>La vista no puede importar el modelo, así que no conoce el
+     * repositorio de imágenes: {@code app.Main} le pasa una función que, dada
+     * la referencia, devuelve los bytes. Las imágenes ya leídas se guardan en
+     * memoria para no volver a pedirlas.</p>
+     *
+     * @param fuente referencia → bytes de la imagen, o {@code null} si no existe
+     */
+    void usarFuenteDeImagenes(java.util.function.Function<String, byte[]> fuente);
+
     /**
      * Crea el campo de la barra de búsqueda: más ancho que un campo de
      * formulario y con una lupa como ícono de contexto.
@@ -369,11 +553,125 @@ public interface IComponentesFactory {
     CampoTextoConIcono crearCampoBusqueda(String textoFantasma);
 
     /**
+     * Crea la etiqueta de alerta de un formulario: la franja donde aparecen
+     * los errores de validación.
+     *
+     * <p>Arranca vacía e invisible. Se llena con
+     * {@link #pintarAlerta(JLabel, String, boolean)}, que además decide si es
+     * un error o un aviso; así la vista no elige colores.</p>
+     *
+     * @return etiqueta lista para colocar en el formulario
+     */
+    JLabel crearAlerta();
+
+    /**
+     * Llena (o vacía) una alerta creada con {@link #crearAlerta()}.
+     *
+     * @param alerta   etiqueta a actualizar
+     * @param mensaje  texto a mostrar; vacío o {@code null} la oculta
+     * @param esError  {@code true} para el tratamiento de error, {@code false}
+     *                 para un aviso informativo
+     */
+    void pintarAlerta(JLabel alerta, String mensaje, boolean esError);
+
+    /**
+     * Crea un botón de acción flotante (FAB): circular, en color de acento y
+     * pensado para superponerse al contenido.
+     *
+     * <p>Se reserva para acciones que <em>no</em> están ya visibles en la
+     * pantalla. Duplicar con un FAB un botón que el usuario ya tiene delante
+     * añade ruido, no alcance.</p>
+     *
+     * @param glifo       texto corto del botón (una flecha, un signo)
+     * @param descripcion ayuda emergente que explica qué hace
+     * @param tamano      diámetro en píxeles
+     * @return el botón, listo para colocar en una capa superpuesta
+     */
+    JButton crearBotonFlotante(String glifo, String descripcion, int tamano);
+
+    /**
      * Crea el botón de carrito de la barra superior, con su contador.
      *
      * @return botón con badge, listo para recibir su acción
      */
     BotonCarrito crearBotonCarrito();
+
+    /**
+     * Ejecuta una tarea lenta fuera del hilo de eventos, mostrando un
+     * indicador mientras dura.
+     *
+     * <p>Swing pinta en un solo hilo: una consulta a la base o una petición de
+     * red hechas ahí dejan la ventana congelada. Esto la mueve a un
+     * {@code SwingWorker} y devuelve el resultado ya en el hilo de eventos,
+     * que es el único desde el que se puede tocar la interfaz.</p>
+     *
+     * @param <T>        tipo del resultado
+     * @param padre      componente sobre el que se centra el indicador
+     * @param mensaje    qué se está haciendo ("Guardando...", "Conectando...")
+     * @param tarea      trabajo lento; **no** debe tocar componentes Swing
+     * @param alTerminar qué hacer con el resultado, ya en el hilo de eventos
+     * @param alFallar   qué hacer si la tarea falló, también en el hilo de
+     *                   eventos; recibe la excepción para poder explicarla
+     */
+    <T> void ejecutarConCarga(Component padre, String mensaje,
+                              java.util.function.Supplier<T> tarea,
+                              java.util.function.Consumer<T> alTerminar,
+                              java.util.function.Consumer<Exception> alFallar);
+
+    /**
+     * Igual que {@link #ejecutarConCarga}, pero con un botón "Cancelar".
+     *
+     * <p>Para esperas que dependen del usuario y no de la red, como terminar
+     * el acceso con Google en el navegador. Pulsar "Cancelar" ejecuta
+     * {@code alCancelar}, que debe hacer que la tarea vuelva cuanto antes; el
+     * indicador se cierra cuando la tarea vuelve, no antes.</p>
+     *
+     * @param <T>        tipo del resultado
+     * @param padre      componente sobre el que se centra el indicador
+     * @param mensaje    qué se está esperando
+     * @param tarea      trabajo lento; **no** debe tocar componentes Swing
+     * @param alTerminar qué hacer con el resultado, ya en el hilo de eventos
+     * @param alFallar   qué hacer si la tarea falló, en el hilo de eventos
+     * @param alCancelar cómo pedirle a la tarea que termine
+     */
+    <T> void ejecutarCancelable(Component padre, String mensaje,
+                                java.util.function.Supplier<T> tarea,
+                                java.util.function.Consumer<T> alTerminar,
+                                java.util.function.Consumer<Exception> alFallar,
+                                Runnable alCancelar);
+
+    /**
+     * Crea un diálogo modal vacío con el tema aplicado, para pantallas que
+     * necesitan más que un "aceptar / cancelar".
+     *
+     * <p>{@link #mostrarDialogoConfirmacion(Component, String, JComponent,
+     * String)} sirve cuando la respuesta es un sí o un no y el diálogo se
+     * cierra en cualquier caso. No sirve cuando hay que validar lo escrito y
+     * <em>seguir abierto</em> si algo está mal, que es lo que necesita la
+     * edición de perfil: aquí se devuelve el {@link JDialog} y quien lo pide
+     * decide cuándo cerrarlo.</p>
+     *
+     * @param padre     componente sobre el que se centra
+     * @param titulo    título de la ventana
+     * @param contenido panel con los campos y los botones
+     * @return el diálogo, todavía sin mostrar
+     */
+    JDialog crearDialogoModal(Component padre, String titulo, JComponent contenido);
+
+    /**
+     * Abre el selector de archivos para elegir la imagen de un producto.
+     *
+     * <p>Filtrado a los formatos que el proyecto sabe leer
+     * ({@code .png}, {@code .jpg}, {@code .jpeg}). Vive en la fábrica y no en
+     * la vista por la misma razón que el resto: es un componente de Swing con
+     * estilo, y ninguna pantalla debe montar el suyo a mano.</p>
+     *
+     * @param padre    componente sobre el que se centra el diálogo
+     * @param rutaActual ruta ya seleccionada, para abrir en esa carpeta; puede
+     *                   ir vacía
+     * @return ruta absoluta del archivo elegido, o {@code null} si se canceló
+     */
+    String elegirImagen(Component padre, String rutaActual);
 
     /**
      * Crea el recuadro de imagen de un producto.
@@ -403,7 +701,7 @@ public interface IComponentesFactory {
     /**
      * Abre o cierra un panel lateral animando su ancho.
      *
-     * <p>Mismo mecanismo que {@link #instalarEfectoZoomHover(JButton)}:
+     * <p>Mismo mecanismo que el resto de animaciones de la fábrica:
      * interpola {@code setPreferredSize} + {@code revalidate()} con un
      * {@code Timer}. No pinta nada a mano y el contenido del panel no se
      * reacomoda, solo el espacio que ocupa.</p>

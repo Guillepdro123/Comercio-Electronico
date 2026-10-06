@@ -42,6 +42,14 @@ import view.factory.icons.IconoOjo;
  */
 public class BordeRedondeado implements Border {
 
+    /**
+     * Propiedad de cliente con la que un componente declara sobre qué color
+     * está colocado cuando no es un panel corriente (el buscador vive sobre la
+     * barra oscura). La fábrica la lee al construir el borde, para que las
+     * esquinas se tapen con el color correcto.
+     */
+    public static final String PROPIEDAD_COLOR_EXTERIOR = "comercio.colorExterior";
+
     private final Color colorBorde;
     private final Color colorExterior;
     private final int radio;
