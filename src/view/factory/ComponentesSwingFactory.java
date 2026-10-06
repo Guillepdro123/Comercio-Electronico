@@ -242,16 +242,6 @@ public class ComponentesSwingFactory implements IComponentesFactory {
     }
 
     /**
-     * PUENTE TEMPORAL (de la Parte 4 a la Parte 6 del paso al Incremento 4):
-     * conserva el constructor sin argumentos que todavía usa el {@code app.Main}
-     * del Incremento 3, con la paleta oscura que ese Main instala (FlatDarkLaf).
-     * La Parte 6 trae la versión definitiva de esta clase, sin este constructor.
-     */
-    public ComponentesSwingFactory() {
-        this(Paleta.oscura());
-    }
-
-    /**
      * Fija en el {@code UIManager} los colores base del tema. Son colores
      * vivos, así que basta con ponerlos una vez; se repite tras cambiar de
      * Look and Feel por si la instalación los hubiera reemplazado.

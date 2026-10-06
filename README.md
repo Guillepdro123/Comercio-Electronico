@@ -2,7 +2,9 @@
 
 Aplicación de escritorio en Java Swing con arquitectura MVC, desarrollada por incrementos funcionales.
 
-**Estado actual:** Incremento 2 — iteración y refinamiento de la interfaz sobre el registro de usuarios del Incremento 1: `MainFrame` amplio con panel lateral (sidebar) de navegación, paleta oscura morada estilo SaaS/Tech con acento violeta, `CardLayout` para Login/Registro, autenticación con redirección por rol, confirmaciones con `JOptionPane` y un ciclo de vida estricto de ventanas (`dispose()` al pasar de una ventana a otra, nunca ventanas ocultas y vivas). La operación de negocio sigue siendo la misma (CREAR usuarios); este incremento no agrega un caso de uso nuevo, refina cómo se presenta y se navega el que ya existía. Tras una revisión de calidad se corrigieron además tres puntos de confiabilidad y estabilidad (ver [Correcciones de calidad y mantenibilidad](#correcciones-de-calidad-y-mantenibilidad)): correo único al registrarse, cierre seguro de los paneles de rol y ventanas de tamaño fijo.
+**Estado actual (04/10/2026):** entrega final, funcional y empaquetada como `.exe`. Todo usuario compra (catálogo con búsqueda y filtros, carrito, compra atómica, correos de confirmación, reseñas con estrellas) y el Proveedor además vende (CRUD de su catálogo con su marca e indicadores de venta). Persistencia en MongoDB Atlas, con respaldo en memoria si no hay red. **La documentación técnica completa está en [`docs/`](docs/README.md); si llegas nuevo al proyecto, empieza por la [guía de traspaso](docs/00_Inicio/guia_de_traspaso.md).**
+
+**Incremento 2 — iteración y refinamiento de la interfaz sobre el registro de usuarios del Incremento 1: `MainFrame` amplio con panel lateral (sidebar) de navegación, paleta oscura morada estilo SaaS/Tech con acento violeta, `CardLayout` para Login/Registro, autenticación con redirección por rol, confirmaciones con `JOptionPane` y un ciclo de vida estricto de ventanas (`dispose()` al pasar de una ventana a otra, nunca ventanas ocultas y vivas). La operación de negocio sigue siendo la misma (CREAR usuarios); este incremento no agrega un caso de uso nuevo, refina cómo se presenta y se navega el que ya existía.
 
 ---
 
@@ -10,17 +12,43 @@ Aplicación de escritorio en Java Swing con arquitectura MVC, desarrollada por i
 
 El sistema registra los dos actores de la plataforma: **Clientes**, que compran y aportan una dirección de envío, y **Proveedores**, que abastecen el catálogo y aportan el NIT de su empresa. Ambos comparten identificación, nombres, correo y contraseña, por lo que se modelan como subclases de una clase abstracta común.
 
-La persistencia de este incremento es en memoria, diseñada para reemplazarse por una base de datos sin modificar el resto del sistema.
+La persistencia es MongoDB Atlas, detrás de interfaces de repositorio: sin `config.properties` (o sin red) la aplicación usa repositorios en memoria sin modificar el resto del sistema.
 
 ---
 
 ## Requisitos
 
-- JDK 25 o superior (el proyecto declara `javac.source=26`; compila también con el JDK 25)
-- Apache NetBeans en una versión compatible con ese JDK
-- Proyecto tipo *Java with Ant → Java Application*
+- **JDK 26** (`javac.source/target=26`). Apache NetBeans reciente ya lo trae
+  en `C:\Program Files\Apache NetBeans\jdk`; un JDK anterior no abre las clases.
+- Apache NetBeans (proyecto *Java with Ant → Java Application*)
 
-No requiere librerías externas.
+**Dependencias (ocho JAR, ya versionados en `lib/`):**
+
+| Librería | Versión | Para qué |
+|---|---|---|
+| [FlatLaf](https://www.formdev.com/flatlaf/) | 3.7.2 | Look and Feel base, en variante clara u oscura |
+| MigLayout Swing | 11.4.2 | Layout de los formularios |
+| MigLayout Core | 11.4.2 | Requerida por la anterior |
+| MongoDB Driver Sync | 5.12.0 | Acceso a MongoDB Atlas |
+| MongoDB Driver Core | 5.12.0 | Requerida por la anterior |
+| BSON | 5.12.0 | Requerida por el driver |
+| BSON Record Codec | 5.12.0 | Requerida por el driver en ejecución |
+| jBCrypt | 0.4 | Cifrado de contraseñas |
+
+`bson-record-codec` no aparece en la documentación habitual del driver, pero su
+POM la declara obligatoria en tiempo de ejecución. `slf4j-api` sí figura, pero
+está marcada como **opcional**: no se incluye.
+
+**No hay `pom.xml`: esto es Ant, no Maven.** Los JAR se declaran a mano en
+`nbproject/project.properties`, con un `file.reference.<nombre>` por cada uno y
+su entrada en `javac.classpath`. Van versionados en el repositorio para que el
+proyecto compile sin red. Para agregar otra librería: descargarla de Maven
+Central, **verificar el SHA-1 que publica el repositorio**, dejar el JAR en
+`lib/` y declararlo ahí.
+
+El proyecto declara además `run.jvmargs=--enable-native-access=ALL-UNNAMED`:
+FlatLaf carga una librería nativa en Windows para las decoraciones de ventana,
+y desde el JDK 24 eso emite un aviso por consola si no se declara.
 
 ---
 
@@ -29,27 +57,67 @@ No requiere librerías externas.
 ```
 ComercioElectronico/
 ├── README.md                         ← este documento
+├── CLAUDE.md                         ← directivas de trabajo sobre el proyecto
+├── .claude/skills/java-swing-ui/     ← reglas de la capa visual (stack, pintado, verificación)
+├── lib/                              ← FlatLaf y MigLayout (ver Requisitos)
 ├── build.xml                         ← generado por NetBeans
 ├── nbproject/                        ← configuración del IDE
 └── src/
     ├── app/
-    │   └── Main.java                 ← ensamblador; ver nota de paquete más abajo
+    │   ├── Main.java                 ← ensamblador; ver nota de paquete más abajo
+    │   └── Infraestructura.java      ← lo que se crea una vez y viaja toda la ejecución
     ├── controller/
     │   ├── UsuarioController.java    ← caso de uso "Registrar usuario"
     │   ├── LoginController.java      ← caso de uso "Iniciar sesión"
-    │   ├── PoliticaPassword.java     ← reglas y fortaleza de la contraseña
-    │   └── ControlIntentosFallidos.java ← 3 fallos seguidos → bloqueo de 30 s
+    │   ├── AccesoGoogleController.java ← acceso con Google
+    │   ├── SesionController.java     ← sesión abierta: tienda ↔ panel, tema, perfil, cierre
+    │   ├── ClienteController.java    ← tienda: catálogo, ficha y reseñas, carrito, checkout
+    │   ├── ProveedorController.java  ← panel del Proveedor: CRUD del catálogo e indicadores
+    │   └── PerfilController.java     ← caso de uso "Editar perfil"
+    ├── aplicacion/                   ← casos de uso, sin Swing
+    │   ├── acceso/      AutenticacionService
+    │   ├── cuenta/      CuentaService (registro, perfil, empresa, cédula y dirección)
+    │   ├── catalogo/    CatalogoService, ReporteVentasService, ImportadorImagen,
+    │   │                NormalizacionCatalogo (rutas antiguas y marcas vacías)
+    │   ├── compra/      CompraService (exige cédula y dirección antes de tocar stock)
+    │   ├── resena/      ResenaService (solo opina quien compró)
+    │   └── seguridad/   CifradoPassword, PoliticaPassword, ControlIntentosFallidos
     ├── model/
     │   ├── entity/
-    │   │   ├── Usuario.java          ← clase abstracta
+    │   │   ├── Usuario.java          ← clase abstracta (cédula, dirección, puedeVender)
     │   │   ├── Cliente.java
-    │   │   └── Proveedor.java
+    │   │   ├── Proveedor.java        ← NIT, empresa y su propia dirección (doble rol)
+    │   │   ├── Producto.java         ← artículo del catálogo, con la marca de quien vende
+    │   │   ├── Categoria.java        ← enum de categorías
+    │   │   ├── Carrito.java          ← carrito de la sesión (no se persiste)
+    │   │   ├── LineaPedido.java      ← renglón con el precio del momento
+    │   │   ├── Pedido.java           ← compra confirmada, con el documento del comprador
+    │   │   └── Resena.java           ← opinión de 1 a 5 estrellas
     │   └── repository/
-    │       ├── IUsuarioRepository.java   ← interfaz
-    │       └── UsuarioRepositoryImpl.java
+    │       ├── IUsuarioRepository.java      ← interfaz
+    │       ├── IProductoRepository.java     ← interfaz
+    │       ├── IPedidoRepository.java       ← interfaz
+    │       ├── IResenaRepository.java       ← interfaz
+    │       ├── IImagenRepository.java       ← interfaz (imágenes subidas, referencia img:<id>)
+    │       ├── memoria/                     ← almacén sin red (por defecto, sin config.properties)
+    │       │   ├── UsuarioRepositoryImpl.java
+    │       │   ├── ProductoRepositoryMemoria.java
+    │       │   ├── PedidoRepositoryMemoria.java
+    │       │   ├── ResenaRepositoryMemoria.java
+    │       │   └── ImagenRepositoryArchivo.java ← carpeta relativa imagenes/
+    │       └── mongo/                       ← MongoDB Atlas (repositorios + adapter/),
+    │                                          incluidas las colecciones resenas e imagenes
+    ├── service/
+    │   ├── config/      Configuracion.java          ← único lector de config.properties
+    │   ├── sesion/      SessionManager, PreferenciasUsuario (tema claro/oscuro)
+    │   ├── imagen/      OptimizadorImagen           ← reduce a 800 px antes de guardar
+    │   ├── google/      GoogleAuthService, IAutenticadorExterno, PerfilExterno
+    │   └── correo/      notificadores (Resend, local, en segundo plano), sus
+    │                    contratos y las plantillas (PlantillaCorreo, MensajeBienvenida, ResumenPedido)
     ├── resources/
     │   ├── images/
     │   │   ├── logo.png                ← emblema circular de la marca (PNG con transparencia)
+    │   │   ├── productos/              ← ilustraciones del catálogo (generadas, ver nota)
     │   │   └── icons/
     │   │       ├── check.png          ← ícono de éxito de los diálogos (reemplaza al del L&F)
     │   │       └── ecommerce_cart.gif ← carrito animado del sidebar (generado a medida)
@@ -66,23 +134,56 @@ ComercioElectronico/
         │   ├── PanelRegistroUsuario.java  ← carta "registro"
         │   └── PanelLogin.java            ← carta "login" (por defecto al arrancar)
         ├── dashboard/
-        │   ├── ClientDashboardFrame.java  ← ventana del Cliente (1024×680 fija), tras login
-        │   └── ProviderDashboardFrame.java← ventana del Proveedor (1024×680 fija), tras login
+        │   ├── AccionesSesion.java          ← cerrar sesión, perfil, tema y cambiar de panel
+        │   ├── cliente/
+        │   │   ├── IClienteDashboardView.java ← contrato que usa ClienteController
+        │   │   ├── ClientDashboardFrame.java  ← la tienda: banner, catálogo, ficha con reseñas, carrito y checkout
+        │   │   ├── ResenaVista.java, ResumenResenas.java, NuevaResena.java ← reseñas para la vista
+        │   │   ├── DatosEnvio.java            ← cédula y dirección del formulario rápido del checkout
+        │   │   ├── TarjetaProducto.java       ← datos de un producto para la vista
+        │   │   ├── LineaCarrito.java          ← renglón del carrito (precio unitario, tope de cantidad)
+        │   │   ├── Promocion.java             ← oferta del banner o del pop-up
+        │   │   └── ResumenCompra.java         ← compra pasada para la vista
+        │   └── proveedor/
+        │       ├── IProveedorDashboardView.java ← contrato que usa ProveedorController
+        │       ├── ProviderDashboardFrame.java← tablero de indicadores y gestión del catálogo
+        │       ├── BarraVentas.java           ← barra del gráfico para la vista
+        │       ├── FilaProducto.java          ← producto en la tabla del Proveedor
+        │       ├── IndicadorVentas.java       ← cifras del tablero (con ticket promedio y más vendido)
+        │       └── DatosProducto.java         ← lo capturado en el formulario, sin validar
         └── factory/
             ├── IComponentesFactory.java          ← interfaz de la fábrica (la puerta de entrada)
-            ├── ComponentesSwingFactory.java      ← implementación "SaaS/Tech Morado"
+            ├── ComponentesSwingFactory.java      ← construye cada componente con la Paleta que recibe
+            ├── tema/
+            │   ├── Paleta.java                   ← colores por función; Paleta.clara() y Paleta.oscura()
+            │   ├── TemaDinamico.java             ← paleta vigente y un color vivo por rol
+            │   └── ColorDeTema.java              ← Color que se resuelve contra la paleta al pintarse
+            ├── promo/                            ← piezas promocionales
+            │   ├── BannerRotativo.java           ← banner con Timer, fundido y botones superpuestos
+            │   ├── Diapositiva.java              ← dato de una diapositiva
+            │   └── CabeceraDegradada.java        ← franja con degradado del pop-up
+            ├── charts/                           ← visualización de datos
+            │   ├── GraficoBarras.java            ← barras horizontales con la paleta
+            │   └── Barra.java                    ← dato de una barra
             ├── components/                       ← controles compuestos del formulario
+            │   ├── BotonCarrito.java             ← ícono de carrito + contador (badge)
             │   ├── CampoTextoConIcono.java       ← campo de texto + ícono de contexto
             │   ├── CampoPasswordConToggle.java   ← ícono + campo + botón "ojo"
-            │   └── SelectorSegmentado.java       ← control segmentado (reemplaza al JComboBox)
+            │   ├── SelectorSegmentado.java       ← control segmentado (reemplaza al JComboBox)
+            │   └── SelectorEstrellas.java        ← calificar de 1 a 5 (cinco botones)
             ├── effects/                          ← movimiento y sonido
             │   ├── IndicadorCarga.java           ← indicador circular (giratorio o de avance)
             │   ├── AnimacionConfeti.java         ← celebración sobre el glassPane
-            │   └── SonidoExito.java              ← reproduce exito.wav con AudioSystem/Clip
+            │   ├── SonidoExito.java              ← reproduce exito.wav con AudioSystem/Clip
+            │   └── TransicionTema.java           ← fundido del cambio de tema (foto que se desvanece)
             ├── icons/                            ← todo lo que se dibuja o se carga como ícono
             │   ├── IconoCampo.java               ← glifos de línea de cada campo
             │   ├── IconoOjo.java                 ← mostrar/ocultar contraseña
             │   ├── IconoPunto.java               ← punto del semáforo de fortaleza
+            │   ├── IconoCarrito.java             ← glifo del carrito de la barra superior
+            │   ├── IconoCerrar.java              ← la "X" del pop-up, dibujada (no el carácter)
+            │   ├── IconoEstrellas.java           ← estrellas con media estrella, dibujadas
+            │   ├── IconoTema.java                ← luna / sol del conmutador de tema
             │   ├── IconoGifAnimado.java          ← GIF animado decodificado con ImageIO
             │   └── IconoImagenEscalada.java      ← reduce una imagen cuidando la nitidez
             └── utils/                            ← piezas de apoyo reutilizables
@@ -144,13 +245,12 @@ El `README.md` va en la raíz del proyecto, al mismo nivel de `src`, no dentro d
 
 ## Instalación en NetBeans
 
-1. Crear un proyecto *Java Application* sin clase principal.
-2. Sobre **Source Packages**, crear los paquetes escribiendo el nombre completo con puntos: `app`, `model.entity`, `model.repository`, `view.core`, `view.auth`, `view.dashboard`, `view.factory`, `controller` y `resources.images`.
-3. Copiar cada archivo en el paquete que indica su primera línea (`Main.java` va en `app`, ya no en la raíz).
-4. Copiar el logo en `resources.images`. Si el archivo no es `.png`, ajustar la extensión en la constante `RUTA_LOGO` y en el método `cargarImagenLogo()` de `ComponentesSwingFactory` (único lugar que carga el logo; todas las vistas piden `fabrica.crearLogo(tamano)`).
-5. Ejecutar `app.Main` con Shift+F6 (o configurar `app.Main` como clase principal del proyecto).
+1. *File → Open Project* → la carpeta del proyecto (ya es un proyecto de NetBeans: no hay que crear paquetes ni copiar archivos).
+2. Clic derecho sobre el proyecto → **Clean and Build**.
+3. **Run** (`F6`): la clase principal es `app.Main`.
+4. Para usar MongoDB Atlas: copiar `config.properties.ejemplo` como `config.properties` y rellenarlo. Sin ese archivo arranca con datos en memoria.
 
-Si aparecen caracteres extraños, configurar la codificación del proyecto en UTF-8.
+Si aparecen caracteres extraños, configurar la codificación del proyecto en UTF-8. El paso a paso completo, incluidas las cuentas externas, está en la [guía de traspaso](docs/00_Inicio/guia_de_traspaso.md); el ejecutable `.exe`, en la [guía del ejecutable](docs/05_Empaquetado/guia_ejecutable.md).
 
 ---
 
@@ -181,9 +281,9 @@ PanelLogin ──cerrarVentana()──► dispose()          │            │
                                                     │     └── Proveedor
                                                     │
                                                     └──► ClientDashboardFrame / ProviderDashboardFrame
-                                                         (JFrame propio, tamaño fijo; según usuario.getTipoCuenta())
+                                                         (JFrame propio, maximizado; según usuario.getTipoCuenta())
                                                               │
-                                                    "Cerrar sesión" o la X: dispose() de sí mismo +
+                                                    "Cerrar sesión": dispose() de sí mismo +
                                                     app.Main.mostrarVentanaPrincipal(repositorio, fabrica)
                                                     → una MainFrame nueva, con el mismo repositorio
 
@@ -267,10 +367,9 @@ nueva:
   correcta: `vista.mostrarExito("¡Bienvenido, <nombre>! ...")`,
   `vista.cerrarVentana()` (destruye la `MainFrame` actual — nunca queda
   oculta y viva) y, según `usuario.getTipoCuenta()` (sin `instanceof`),
-  abre, centrada y con tamaño fijo, `ClientDashboardFrame` o
-  `ProviderDashboardFrame`. Ninguna recibe el `Usuario` completo, solo su
-  nombre. Cada dashboard trae un botón **"Cerrar sesión"** (y su X hace lo
-  mismo) que se destruye a sí mismo y vuelve a abrir
+  abre — maximizada — `ClientDashboardFrame` o `ProviderDashboardFrame`.
+  Ninguna recibe el `Usuario` completo, solo su nombre. Cada dashboard trae
+  un botón **"Cerrar sesión"** que se destruye a sí mismo y vuelve a abrir
   una `MainFrame` nueva (`app.Main.mostrarVentanaPrincipal(...)`, con el
   mismo repositorio: los usuarios ya registrados no se pierden).
 - **La operación de Consulta (Read) del CRUD ya está implementada, vía
@@ -409,84 +508,6 @@ controlador sigue sin importar nada de `javax.swing` para esto.
 
 ---
 
-## Correcciones de calidad y mantenibilidad
-
-Una revisión del Incremento 2 con criterios de ISO/IEC 25010 encontró tres
-defectos. Se corrigieron sin agregar clases ni dependencias nuevas y sin
-romper la separación de capas: cada arreglo quedó en la capa a la que
-pertenece.
-
-| Problema | Consecuencia | Corrección | Característica de calidad |
-|---|---|---|---|
-| Se podían registrar dos cuentas con el mismo correo | El Login siempre encontraba la primera; la segunda nunca podía entrar | Correo único en el controlador y en el repositorio | Adecuación funcional, fiabilidad |
-| La X de los paneles de rol usaba `DISPOSE_ON_CLOSE` | Se cerraba la ventana sin volver al Login y el programa quedaba vivo sin ventanas | La X sigue el mismo camino que "Cerrar sesión" | Fiabilidad, usabilidad |
-| Las ventanas se podían estirar o maximizar | El diseño, medido para un tamaño concreto, se descomponía | Tamaño fijo y `setResizable(false)` en las tres ventanas | Usabilidad, estabilidad visual |
-
-### 1. Confiabilidad de los datos: correo único
-
-El correo es la credencial del Login, así que tiene que identificar a una
-sola cuenta. La regla se aplica en **dos capas, a propósito**:
-
-- **`UsuarioController`** consulta `buscarPorCorreo(correo)` antes de
-  construir la entidad. Es el único que puede dar un mensaje exacto: "Este
-  correo ya está registrado en el sistema."
-- **`UsuarioRepositoryImpl.registrar(...)`** rechaza de nuevo cualquier
-  correo repetido, sin distinguir mayúsculas. La regla quedó escrita en el
-  contrato de `IUsuarioRepository`, así que la futura implementación con
-  base de datos está obligada a cumplirla aunque el controlador cambie.
-
-No se añadió ningún método nuevo a la interfaz: `buscarPorCorreo(...)` ya
-existía para el Login y responde exactamente la pregunta que hacía falta.
-
-### 2. Ciclo de vida de las ventanas: cierre seguro
-
-`ClientDashboardFrame` y `ProviderDashboardFrame` usan ahora
-`DO_NOTHING_ON_CLOSE` y un `WindowListener` cuyo `windowClosing` llama al
-mismo método privado `cerrarSesion(...)` que el botón. Hay **un solo camino
-de salida**: se destruye la ventana con `dispose()` (se liberan sus
-recursos) y se vuelve a abrir el Login con el mismo repositorio.
-
-Se eligió `windowClosing` y no `windowClosed` a propósito: el `dispose()`
-del botón también dispara `windowClosed`, y la vuelta al Login se habría
-ejecutado dos veces. Verificado: tras pulsar la X, la acción de volver al
-Login se ejecuta exactamente una vez y la ventana deja de ser
-`displayable`.
-
-Para terminar el programa se cierra la ventana de Login/Registro, que
-conserva `EXIT_ON_CLOSE`.
-
-### 3. Estabilidad visual: tamaño fijo
-
-| Ventana | Tamaño |
-|---|---|
-| `MainFrame` (Login/Registro) | 950×650 |
-| `ClientDashboardFrame` | 1024×680 |
-| `ProviderDashboardFrame` | 1024×680 |
-
-Las tres llaman a `setResizable(false)`. En Windows eso desactiva además el
-botón de maximizar: quedan solo minimizar y cerrar. El formulario de
-Registro está medido contra el alto de `MainFrame`, y el tamaño mínimo
-anterior (720×520) permitía achicar la ventana hasta recortarlo. Los
-paneles de rol dejaron de abrirse maximizados: su contenido está compuesto
-para un tamaño concreto, y se centran en la pantalla al abrirse.
-
-### Qué gana el código
-
-- **Más robusto:** una regla de negocio crítica ya no depende de que un solo
-  punto del código se acuerde de ella, y ninguna ventana puede dejar la
-  aplicación colgada en segundo plano.
-- **Más fácil de mantener:** el cierre de cada panel está en un único
-  método; cualquier cambio futuro en cómo se cierra sesión se hace en un
-  sitio.
-- **Mismo diseño de capas:** el modelo sigue sin importar Swing, la vista
-  sigue sin importar el modelo y no se agregó ninguna dependencia entre
-  capas.
-- **Documentado donde se lee:** el porqué de cada decisión quedó en el
-  Javadoc de las clases tocadas y en `CLAUDE.md`, para que nadie lo revierta
-  sin saber qué rompe.
-
----
-
 ## Pilares de la POO aplicados
 
 **Encapsulamiento.** Los atributos de las entidades son `private` y se accede a ellos solo por getters y setters, lo que permitirá cifrar la contraseña más adelante sin tocar el resto del código. En la vista, `CampoPasswordConToggle` esconde su `JPasswordField` interno: el resto del código solo conoce `getPassword()` y `limpiar()`.
@@ -504,10 +525,543 @@ para un tamaño concreto, y se centran en la pantalla al abrirse.
 | Principio | Aplicación |
 |---|---|
 | **S** | La vista pinta, el controlador coordina, el repositorio persiste. `MainFrame` solo navega entre cartas; `ComponentesSwingFactory` es la única clase que conoce colores, fuentes y el logo; `UsuarioController`/`LoginController` cada uno resuelve un único caso de uso. |
-| **O** | Agregar un tipo `Administrador` solo requiere una subclase nueva. Agregar un tema visual nuevo solo requiere otra clase que implemente `IComponentesFactory`. Agregar una carta nueva a `MainFrame` solo requiere llamar `mainFrame.agregarCarta(...)` desde `app.Main.mostrarVentanaPrincipal(...)`; agregar un dashboard de rol nuevo es otra clase `JFrame` más, sin tocar `MainFrame` ni `LoginController` fuera de un caso más en su bifurcación. |
+| **O** | Agregar un tipo `Administrador` solo requiere una subclase nueva. Agregar un tema visual nuevo solo requiere otra `Paleta` (`view.factory.tema`), sin tocar la fábrica ni las vistas. Agregar una carta nueva a `MainFrame` solo requiere llamar `mainFrame.agregarCarta(...)` desde `app.Main.mostrarVentanaPrincipal(...)`; agregar un dashboard de rol nuevo es otra clase `JFrame` más, sin tocar `MainFrame` ni `LoginController` fuera de un caso más en su bifurcación. |
 | **L** | Cualquier subclase de `Usuario` funciona donde se espera un `Usuario`; cualquier implementación de `IComponentesFactory` funciona donde una vista espera una fábrica; cualquier implementación de `INavegador` funciona donde un panel espera poder cambiar de carta. |
 | **I** | `IUsuarioRepository` expone solo lo que los casos de uso actuales necesitan (`registrar`, `buscarPorCorreo`). `IRegistroUsuarioView`/`ILoginView` solo exponen lo que su controlador usa. `INavegador` es un contrato de un único método. |
 | **D** | Los controladores dependen de `IRegistroUsuarioView`/`ILoginView`, `IUsuarioRepository` e `IComponentesFactory` (abstracciones); las implementaciones concretas se nombran únicamente en `app.Main` (o, en el caso de las dos ventanas de destino del login y de la reapertura tras cerrar sesión, en el propio `LoginController`, que es el caso de uso que decide cuál abrir). |
+
+---
+
+## Incremento 3 — catálogo, carrito, compra y gestión del proveedor
+
+### Lo que hace el Cliente
+
+Recorrer el catálogo, filtrar por categoría, buscar, ver el detalle de un
+producto, elegir cantidad, armar el carrito y confirmar la compra. Al
+confirmar, el sistema calcula el total, asocia el pedido a la dirección que el
+usuario registró, descuenta el stock y vacía el carrito.
+
+### Lo que hace el Proveedor
+
+Cuatro indicadores en la parte superior —ingresos, unidades vendidas, pedidos
+en los que participó y productos publicados, con cuántos quedaron sin
+existencias— y debajo una tabla con su catálogo, donde puede **publicar,
+editar y eliminar** productos. Lo que guarde aparece de inmediato en el
+catálogo del Cliente, porque ambos paneles hablan con el mismo
+`IProductoRepository`.
+
+Dos decisiones que importan:
+
+- **Cada proveedor ve y administra solo lo suyo.** La tabla se llena con
+  `listarPorProveedor(correo)`, y un proveedor recién registrado empieza con
+  el catálogo vacío. El catálogo sembrado de ejemplo pertenece a
+  `proveedor@empresa.com`.
+- **Los ingresos se suman renglón por renglón, no por el total del pedido.**
+  Una misma compra puede mezclar artículos de varios proveedores; tomar el
+  total del pedido le atribuiría a cada uno las ventas de los demás.
+
+Editar y Eliminar actúan sobre la fila seleccionada de la tabla en vez de
+llevar un botón dentro de cada celda: poner controles dentro de las celdas
+obliga a escribir editores y renderizadores propios, y seleccionar y pulsar es
+el mismo gesto con componentes estándar. Eliminar pide confirmación, porque es
+irreversible.
+
+### Stack visual: FlatLaf y MigLayout
+
+**Look and Feel.** La aplicación arranca con `FlatDarkLaf`, instalado dentro
+del hilo de eventos de Swing antes de construir ninguna ventana. Sustituye a
+Nimbus, que ignoraba `setBackground` en media docena de controles y obligaba a
+sortearlo con delegados `Basic*UI`; FlatLaf respeta los colores que se le piden
+y pinta ventanas y diálogos oscuros hasta la barra de título. Si no estuviera
+disponible, se cae a Nimbus y la aplicación sigue viéndose con sus colores.
+
+**FlatLaf no sustituye a la fábrica.** El L&F pone la base — barras de
+desplazamiento, cursores, sombras, tipografía — y `ComponentesSwingFactory`
+sigue poniendo la identidad: la paleta morada, los bordes redondeados, los
+íconos y las animaciones son exactamente los de antes.
+
+Los parches heredados de Nimbus **se dejaron puestos**. Se comprobó con
+capturas que con FlatLaf la interfaz se ve correcta tal como está; retirarlos
+es una tarea aparte, de uno en uno y verificando cada vez, no un efecto
+colateral gratuito del cambio de L&F.
+
+**MigLayout está solo en los formularios** (login, registro de usuario y alta
+de producto), que es donde paga: son columnas de pares etiqueta/campo, y con
+`GridBagConstraints` cada fila costaba tres líneas más un contador de fila que
+había que ir pasando entre métodos. Ahora la columna se declara una vez y cada
+componente solo dice su separación.
+
+No se llevó a los dashboards: sus layouts están verificados con capturas y
+migrarlos sería movimiento sin ganancia. Tampoco al panel raíz de Login y
+Registro, que sigue siendo un `GridBagLayout` sin peso porque es justo lo que
+centra la tarjeta dentro de la ventana amplia. Tras migrar el formulario de
+registro se volvió a medir su alto: **582px de los ~613 disponibles**, con la
+alerta visible o sin ella.
+
+### Editar perfil
+
+Desde el menú del avatar, en los dos paneles. Un modal con dos secciones
+separadas a propósito: los datos de contacto (nombre, correo, teléfono y el
+dato propio del rol) y el cambio de contraseña. Cambiar el teléfono y cambiar
+la clave son gestos de riesgo distinto, y mezclarlos en una sola lista de
+campos invita a tocar la contraseña sin querer.
+
+Tres decisiones que importan:
+
+- **El formulario no se cierra cuando algo falla.** Si el correo está repetido
+  o la contraseña nueva no cumple, el mensaje aparece dentro y lo ya escrito se
+  queda. Para eso existe `crearDialogoModal(...)`: el diálogo de confirmación
+  de la fábrica se cierra pase lo que pase.
+- **Para cambiar la contraseña hay que escribir la actual.** Sin eso,
+  cualquiera que se siente frente a una sesión abierta podría cambiarla. Las
+  reglas de la nueva son las mismas del registro, reutilizando
+  `PoliticaPassword`: si algún día cambia el mínimo, cambia en los dos sitios
+  porque solo hay un sitio. Dejar los tres campos vacíos significa "no la
+  cambio", y es un caso normal.
+- **El rótulo del último campo depende del rol** —"Dirección de envío" para un
+  Cliente, "NIT de la empresa" para un Proveedor— y se resuelve con el par
+  `getDatoEspecifico()` / `setDatoEspecifico(...)`, sin un solo `instanceof`.
+
+El teléfono es nuevo en el modelo. **No se añadió al constructor** para no
+tocar todas las llamadas existentes ni alargar el registro: arranca vacío y se
+rellena aquí.
+
+### Imagen de producto: se elige del disco
+
+En el formulario del Proveedor, la ruta ya no se teclea. Hay un botón
+"Seleccionar imagen" que abre el selector de archivos filtrado a `png`, `jpg`
+y `jpeg`, y al lado una **vista previa** de lo elegido. Una ruta escrita no
+dice si el archivo es el correcto ni si el programa puede leerlo; la
+miniatura confirma las dos cosas antes de guardar.
+
+Se guarda la ruta absoluta, que el cargador de imágenes ya resolvía como
+tercer intento, así que lo que el proveedor elige aparece de inmediato en el
+catálogo del Cliente. **Con una salvedad honesta:** una ruta absoluta vale en
+ese equipo. Si algún día el catálogo viaja a otra máquina, habrá que copiar el
+archivo a `resources/images/productos/` en el momento de elegirlo.
+
+### Cerrar sesión con transición
+
+La opción del menú del avatar ya no salta de golpe al Login: muestra el mismo
+indicador que el acceso, con el texto "Cerrando sesión...", y solo después
+destruye la ventana y reabre la principal.
+
+### Micro-interacciones
+
+**Los tres estados de un botón los pinta FlatLaf.** Hasta ahora los botones
+llevaban un delegado `BasicButtonUI` heredado de los tiempos de Nimbus, y ese
+delegado impedía que la librería pintara nada: no había ni hover real ni estado
+pulsado. Se retiró, y cada botón declara su propio estilo con
+`FlatClientProperties.STYLE` — por componente y no global, porque el botón de
+acento y un segmento oscuro no pueden reaccionar igual. Medido en pantalla:
+reposo `#8B5CF6`, al pasar el mouse `#A78BFA`, pulsado `#7C3AED`.
+
+**Los botones principales crecen un 3% al pasar el mouse**, y vuelven suave al
+salir. La primera versión de ese efecto animaba el *tamaño preferido* del
+botón, que es lo que consulta el gestor de disposición, así que el formulario
+entero se recolocaba bajo el cursor (medido: la tarjeta del Login pasaba de 266
+a 269px de alto). Ahora se animan directamente los límites del componente y
+**nunca** se pide recolocar: el botón se pinta más grande sobre el margen de su
+propia celda y nada a su alrededor se mueve. Verificado: `306x44` → `315x45`
+mientras el vecino de encima y la tarjeta conservan sus medidas al píxel.
+
+**Los campos de captura tienen hover y un anillo de foco que se funde.** El
+salto seco de gris a violeta se notaba brusco justo donde el ojo está mirando,
+así que el color se interpola con un `Timer`, la misma técnica que el zoom de
+los botones.
+
+**El avatar es un botón, no una etiqueta.** Antes se escuchaba con
+`mouseClicked`, que no se dispara si el ratón se mueve un píxel entre pulsar y
+soltar: el menú fallaba de forma intermitente y parecía un problema de
+esquinas. Medido con un arrastre de 1px no abría; quieto sí. Convertido en
+botón abre siempre, en cualquier punto del componente, y de paso reacciona al
+hover y al pulsado como el resto.
+
+**El buscador solo se enfoca si lo pulsas.** Se quedaba el cursor al abrir la
+ventana y también cada vez que la rejilla se reconstruía, porque al
+desaparecer el botón enfocado Swing replegaba al primer componente enfocable,
+que era él. El panel del Cliente declara ahora una política de recorrido sin
+componente por defecto, así que el foco solo llega donde el usuario lo pone.
+Y si se pulsa en una zona vacía del catálogo, lo suelta: Swing por sí solo no
+mueve el foco al pulsar algo que no es enfocable, de modo que el cursor se
+quedaba parpadeando ahí para siempre.
+
+**Un solo botón flotante, y donde no duplica nada:** volver al principio del
+catálogo del Cliente. Aparece pasados 160px de desplazamiento. Repetir ahí el
+carrito o el buscador, que viven en la barra superior, habría sido ruido.
+
+**Las alertas de validación son una franja, no una línea suelta:** borde y
+fondo teñidos del color del mensaje, en rojo para errores y en ámbar para
+avisos. La cuenta atrás del bloqueo por intentos fallidos usa el tratamiento de
+aviso, porque el usuario no se ha equivocado: está esperando. La franja reserva
+su sitio aunque esté vacía, de modo que el formulario no salta cuando aparece un
+mensaje.
+
+### Persistencia: MongoDB Atlas
+
+La aplicación guarda en la nube si se lo configuras, y en memoria si no.
+
+**Para conectarla:** copia `config.properties.ejemplo` como `config.properties`
+y rellena tu cadena de Atlas.
+
+```properties
+mongodb.uri=mongodb+srv://usuario:clave@tu-cluster.mongodb.net/?retryWrites=true&w=majority
+mongodb.base=comercio_electronico
+resend.api.key=re_tu_clave
+resend.remitente=Comercio Electronico <onboarding@resend.dev>
+```
+
+Quien lee ese archivo es `service.config.Configuracion`, y solo él: la conexión y el
+correo piden su clave, no abren el archivo por su cuenta. Si cada uno lo
+abriera, el formato, la codificación y el criterio de "qué pasa si falta" se
+decidirían dos veces. Lo busca en la carpeta de trabajo, después junto al
+`.exe` y después junto al JAR, así que en el ejecutable basta con dejarlo al
+lado de `ComercioElectronico.exe` (ver `docs/05_Empaquetado`).
+
+Ese archivo está en `.gitignore` y **no se entrega**: una contraseña escrita en
+un archivo del proyecto termina copiada en cualquier copia del proyecto. Lo que
+sí viaja es la plantilla.
+
+**Sin ese archivo la aplicación arranca igual**, con el almacén en memoria de
+siempre, y lo dice por consola. Es deliberado: una entrega académica tiene que
+poder abrirse y defenderse sin red. El único punto que decide entre una cosa y
+otra es `app.Main`, igual que con el notificador de correo — ni las vistas ni
+los controladores saben qué hay detrás de las interfaces de repositorio.
+
+**Conversión documento ⇄ entidad (patrón Adapter).** Los repositorios de
+`model.repository.mongo` solo deciden qué se consulta; convertir entre un
+`org.bson.Document` y una entidad lo hacen los adaptadores de
+`model.repository.mongo.adapter`:
+
+| Adaptador | Colección | Entidad | Qué resuelve |
+|---|---|---|---|
+| `UsuarioAdapter` | `usuarios` | `Cliente` / `Proveedor` | elige la subclase por `tipoCuenta`; cuentas antiguas sin teléfono |
+| `ProductoAdapter` | `productos` | `Producto` | `ObjectId` ⇄ texto, números enteros o decimales, categoría por nombre, campo derivado `busqueda` |
+| `CompraAdapter` | `compras` | `Pedido` | renglones anidados, fecha UTC ⇄ `LocalDateTime` |
+
+Los tres implementan `AdaptadorDocumento<T>`. Los nombres de campo que usan
+las consultas son constantes de su adaptador, así que el filtro y el documento
+no pueden dejar de coincidir.
+
+Las tres colecciones (`usuarios`, `productos`, `compras`) **se crean solas** con
+el primer documento; no hace falta ningún script. Los renglones de un pedido van
+anidados dentro de su documento, porque un pedido se lee siempre entero y sus
+renglones no existen sin él.
+
+### La espera no congela la ventana
+
+Swing pinta y atiende los clics en un **único hilo**. Cualquier cosa que tarde
+en ese hilo deja la ventana sin repintarse y Windows la marca como "no
+responde". Con el almacén en memoria no se notaba; con Atlas detrás, cada
+consulta es un viaje por red.
+
+El trabajo lento va en un `SwingWorker` con un indicador delante, y el reparto
+es el mismo de siempre: **el controlador dice qué tarda, la vista decide cómo
+se ve la espera**. El controlador llama a
+`ejecutarEnSegundoPlano(mensaje, tarea, alTerminar)` —un método del contrato de
+la vista, no de Swing— y la vista lo resuelve con
+`IComponentesFactory.ejecutarConCarga(...)`, que monta un `DialogoCarga`: un
+diálogo **modal** sin decoración con el indicador giratorio del proyecto. Modal
+a propósito, para que nadie pulse dos veces "comprar" mientras la primera
+compra viaja.
+
+Qué corre ya fuera del hilo de eventos:
+
+| Operación | Qué hace | Medido |
+|---|---|---|
+| Iniciar sesión | busca la cuenta por correo | 1 consulta |
+| Registrarse | comprueba el correo, cifra con BCrypt y guarda la cuenta | 2 consultas + BCrypt |
+| Confirmar compra | comprueba existencias, registra el pedido y descuenta stock | 2N + 1 consultas |
+| Publicar / editar / eliminar un producto | escribe en el catálogo | 1–2 consultas |
+| Enviar un correo (compra o bienvenida) | petición HTTP a Resend | en su propio hilo; nadie lo espera |
+
+Qué sigue en el hilo de eventos, a sabiendas: los **refrescos de pantalla**
+posteriores (volver a pedir el catálogo, el carrito o los indicadores). Son una
+sola lectura, ~100 ms contra el clúster real, y sacarlos también obligaría a
+partir cada acción en dos esperas encadenadas.
+
+Detalles que importan del reparto: el carrito se vacía **después** de que la
+compra vuelve bien, no antes —mientras viaja todavía puede fallar, y un carrito
+vaciado de antemano dejaría al usuario sin nada que reintentar—; y el trabajo de
+fondo no toca la vista, así que devuelve su resultado (`ResultadoCompra`, el
+nombre del producto, la cuenta encontrada) para que lo cuente quien continúa ya
+en el hilo de eventos.
+
+Comprobado en ejecución: la tarea corre en `SwingWorker-pool-1-thread-1`, la
+ventana se sigue repintando durante la espera y el diálogo se cierra solo al
+terminar.
+
+### Catálogo sincronizado (patrón Observer)
+
+Cuando un Proveedor publica, edita o elimina un producto, el catálogo que un
+Cliente tiene abierto se actualiza solo, sin reabrir la ventana.
+
+- `observer.CatalogoObserver` declara el aviso (`actualizarCatalogo()`) y
+  `observer.CatalogoSubject` lleva la lista de suscritos
+  (`agregarObservador`, `removerObservador`, `notificarObservadores`).
+- **Avisan** `ProveedorController`, tras cada escritura con éxito, y
+  `VigilanteCatalogoMongo`, que escucha un *Change Stream* de MongoDB sobre la
+  colección `productos` y trae los cambios hechos **desde otros equipos**. Esta
+  segunda fuente es la que importa en la práctica: en un mismo programa nunca
+  están abiertos a la vez el panel del Proveedor y el del Cliente.
+- **Observa** el panel del Cliente. Recibe el aviso, pasa al hilo de eventos y
+  pide al `ClienteController` que recargue, conservando la búsqueda y la
+  categoría activas. Varios avisos seguidos se funden en una sola recarga.
+- El panel se suscribe al abrirse y se da de baja al cerrar sesión.
+
+Sin conexión a Atlas solo quedan los avisos locales.
+
+### Acceso con Google
+
+Si `config.properties` trae `google.client.id` y `google.client.secret` (un ID
+de cliente OAuth de tipo **App de escritorio**, ver los pasos en
+`config.properties.ejemplo`), el Login muestra **Continuar con Google**:
+
+1. La aplicación abre un servidor HTTP efímero en `127.0.0.1` y abre el
+   navegador en la página de Google.
+2. Google devuelve el navegador a `http://127.0.0.1:PUERTO/callback` con un
+   código; el servidor lo recoge y se apaga.
+3. La aplicación canjea el código (con PKCE) y lee el correo verificado y el
+   nombre.
+4. Si el correo ya tiene cuenta, entra. Si no, pregunta si será Cliente o
+   Proveedor y crea la cuenta, sin contraseña propia (marca `AUTH_GOOGLE`); la
+   dirección o el NIT se completan después en "Editar perfil".
+
+La espera se puede cancelar. Sin credenciales, el botón no aparece y todo lo
+demás funciona igual. No añade librerías: `com.sun.net.httpserver` y
+`HttpClient` son del JDK.
+
+### Sesión recordada
+
+Al entrar, la aplicación recuerda al usuario en
+`~/.comercio-electronico/session.properties` (`user.email` y `user.role`, nunca
+la contraseña). En el siguiente arranque, `SesionController.reanudar(...)` busca
+esa cuenta en el repositorio y, si existe con el mismo rol, abre directamente su
+panel sin pasar por el Login. Si la cuenta ya no existe o el rol del archivo no
+coincide con el real, lo descarta y muestra el Login.
+
+- **"Cerrar sesión"** borra el archivo, destruye el panel y vuelve al Login.
+- **La X del panel** termina el programa (`EXIT_ON_CLOSE`) y conserva la sesión:
+  cerrar la ventana no es cerrar sesión.
+
+### Contraseñas cifradas con BCrypt
+
+El registro guarda el hash, nunca el texto. El login verifica con
+`BCrypt.checkpw` y el cambio de contraseña del perfil exige la actual y cifra la
+nueva. Una sola clase, `controller.CifradoPassword`, conoce la librería —
+exactamente como `PoliticaPassword` es la única que conoce las reglas.
+
+Acepta además contraseñas guardadas en claro. No es una concesión: el almacén en
+memoria siembra usuarios así, y sin esa compatibilidad activar el cifrado habría
+dejado fuera a toda cuenta creada antes.
+
+### Rediseño de las dos interfaces
+
+Las dos pantallas se rehicieron sobre lo que dicen las guías de usabilidad de
+comercio electrónico y de tableros de datos. Estos son los cambios y el motivo
+de cada uno.
+
+**Barra de búsqueda.** El campo llevaba un glifo que se leía como una casilla
+de verificación; ahora lleva una lupa, es más ancho y se enfoca al pulsar en
+cualquier punto del control, ícono incluido. Es el único sitio donde un texto
+fantasma hace de etiqueta, que es justo el caso en que las guías lo admiten:
+un buscador es un campo único y familiar, así que no hay nada que recordar ni
+que revisar antes de enviar. En los formularios la etiqueta sigue yendo fuera
+del campo. La ventana además **no le da el foco inicial al buscador**: con el
+foco puesto, el texto fantasma se retira y la barra aparecería vacía y muda.
+
+**Carrito: de panel fijo a cajón con contador.** Antes ocupaba
+permanentemente la derecha de la ventana, aunque estuviera vacío. Ahora vive
+detrás de un ícono en la barra superior con el número de artículos encima
+(*badge*), y se despliega como cajón lateral animando su ancho. El catálogo
+recupera esa franja. Cada renglón lleva **miniatura del producto**, nombre,
+cantidad, subtotal y un botón de quitar: en el carrito es donde la gente
+decide de verdad qué compra, y sin imagen hay que leer los nombres uno por uno
+para reconocer lo que se lleva. Al agregar algo, el cajón se abre solo —así la
+acción se confirma sin ningún aviso— y al terminar la compra se cierra.
+
+**Detalle del producto.** Imagen grande a la izquierda; a la derecha
+categoría, título destacado, descripción completa, precio con el anterior
+tachado y su insignia de descuento, existencias y el selector de cantidad
+"− n +" topado al stock.
+
+**Panel del Proveedor.** Las tarjetas de indicadores ganaron jerarquía con una
+franja de acento y una cifra más grande, y el panel incorpora un **gráfico de
+barras horizontales** dibujado con Swing en la paleta del tema. Son barras
+porque la longitud y la posición son los rasgos con los que mejor se estima
+cuánto mayor es una cosa que otra, y horizontales porque las etiquetas son
+nombres de productos, que en vertical habría que girar o recortar. El gráfico
+muestra **ingresos por producto**; mientras no haya ventas muestra el
+inventario disponible, y el título lo dice siempre, porque cambiar de serie
+sin anunciarlo sería engañoso y enseñar un recuadro vacío no informa de nada.
+
+### Imágenes de producto
+
+El formulario del Proveedor tiene un campo **Imagen**, y lo que registre ahí
+aparece de inmediato en el catálogo del Cliente. La referencia se busca en
+tres sitios y en este orden: como recurso del programa
+(`resources/images/productos/`), como archivo dentro de esa misma carpeta del
+proyecto y, por último, como ruta del sistema, para que un proveedor pueda
+usar una imagen suya que no viaja con la entrega. Si no hay imagen o no se
+puede leer, el recuadro muestra la inicial del producto: un hueco con algo
+dentro se lee mejor que un marco roto.
+
+La imagen se encaja conservando su proporción, no estirándola: la misma
+referencia se muestra apaisada en la tarjeta del catálogo y casi cuadrada en
+el detalle, y deformarla en una de las dos se nota de inmediato.
+
+**Las ilustraciones del catálogo se generaron, no se descargaron** — misma
+razón que el GIF del sidebar: una imagen de banco trae derechos que no encajan
+en una entrega académica y nunca coincide con los hex del tema. Son diez
+trazos de línea en `#8B5CF6`/`#A78BFA` sobre el fondo del recuadro `#2A2545`,
+a 16:9 para que encajen en los dos tamaños sin deformarse.
+
+### Cómo entra MongoDB Atlas
+
+La persistencia se define por **interfaces** (`IProductoRepository`,
+`IPedidoRepository`, y el ya existente `IUsuarioRepository`) y hoy corre
+sobre implementaciones en memoria con un catálogo de ejemplo. Esto no es un
+simulacro provisional: es el diseño que permite que Atlas entre sin tocar
+nada más.
+
+Para conectar Atlas hacen falta tres cosas, y el resto del sistema no se
+entera de ninguna:
+
+1. Añadir el driver oficial de MongoDB al proyecto (`lib/` + classpath de
+   Ant). **Es la única dependencia externa del proyecto**, que hasta ahora es
+   JDK puro.
+2. Escribir `ProductoRepositoryMongo` y `PedidoRepositoryMongo` implementando
+   las mismas interfaces, mapeando cada entidad a un documento.
+3. Cambiar la línea de `app.Main` que hoy instancia las versiones en memoria.
+
+Ni las vistas ni los controladores cambian: `ClienteController` y
+`ProveedorController` dependen de la interfaz, no de quién la implemente. Las colecciones previstas son
+`usuarios`, `productos` (nombre, descripción, precio, descuento, categoría,
+stock, imagen, proveedor) y `pedidos` (usuario, renglones, total, dirección
+de entrega, fecha).
+
+**La credencial de Atlas no va en el código.** Igual que la clave de Resend,
+se lee de `config.properties`; una cadena de conexión con usuario y contraseña
+escrita en un archivo fuente termina copiada en cualquier entrega.
+
+### Correos transaccionales (Resend)
+
+La aplicación envía tres correos, con una plantilla común (`PlantillaCorreo`)
+que se adapta al móvil:
+
+- **Bienvenida** al registrarse por el formulario.
+- **Confirmación de compra** al cliente: tabla con productos, cantidades,
+  precio unitario, subtotales y total pagado, más la dirección de entrega.
+- **Alerta de venta** a la tienda (`resend.alertas` en `config.properties`):
+  quién compró, su correo y el mismo detalle.
+
+Todos pasan por el mismo servicio:
+
+- `INotificadorPedido` (lo usa `ClienteController`) e `INotificadorCuenta` (lo
+  usa `UsuarioController`): cada controlador ve solo el aviso que le toca.
+- `NotificadorResend` — envío real por HTTP a la API de Resend, con el
+  `HttpClient` del JDK: **no añade dependencias**.
+- `NotificadorRegistroLocal` — el que corre sin clave: imprime por consola
+  exactamente el correo que se habría enviado.
+- `NotificadorEnSegundoPlano` — decorador que envuelve a cualquiera de los dos
+  y manda los correos **en su propio hilo**: el controlador pide el correo y
+  sigue. Así una API lenta no alarga la espera de una compra o de un registro
+  que ya se guardaron. Al cerrar la aplicación espera hasta 10 s a que salga
+  el correo pendiente.
+
+`app.Main` elige según haya o no `resend.api.key` en `config.properties` (y
+opcionalmente `resend.remitente`). Activar el envío real es rellenar esa clave.
+
+El remitente de la tienda es `soporte@misupertiendajava.cyou`, de un dominio
+verificado en Resend.
+
+**Ojo con el remitente de prueba.** Con `onboarding@resend.dev`, Resend solo
+entrega correos a la dirección de la propia cuenta de Resend. Para escribir a
+cualquier cliente hay que verificar un dominio en Resend y poner un remitente
+de ese dominio en `resend.remitente`.
+
+Un fallo de correo **nunca** tumba una compra ni un registro: se informa por
+consola y la operación sigue hecha.
+
+### Iteración final de la interfaz: tema claro y promociones
+
+- **Tema claro.** Fondo gris muy suave `#F4F5FA`, tarjetas blancas con borde
+  `#E2E4EC`, texto `#1F2937`, morado de marca `#7C3AED` (más contraste sobre
+  blanco que `#8B5CF6`), **naranja `#EA580C` para las acciones de compra**
+  ("Confirmar compra", "Ver oferta") y azul `#2563EB` para datos informativos.
+  El sidebar del Login y la barra superior de los paneles siguen en morado
+  oscuro `#1B1627`: el GIF del asistente lleva ese fondo horneado.
+- **El tema es un dato.** Los colores salieron de `ComponentesSwingFactory` a
+  `view.factory.tema.Paleta` (`clara()` y `oscura()`); `app.Main` elige una en
+  una línea y, según sea clara u oscura, instala `FlatLightLaf` o `FlatDarkLaf`.
+  Antes un tema nuevo exigía duplicar una fábrica de más de mil líneas.
+- **Vitrina oscura.** Las ilustraciones de producto traen el fondo `#2A2545`
+  horneado, así que su recuadro conserva ese color en los dos temas.
+- **Banner rotativo** en la cabecera del catálogo del Cliente: las cuatro
+  mejores ofertas, cambio cada 5 s con fundido, pausa con el puntero encima,
+  flechas y botón "Ver oferta" que abre la ficha del producto.
+- **Pop-up promocional al entrar**, en el 40 % de los accesos
+  (`ClienteController.PROBABILIDAD_PROMOCION`, con `Math.random()`): un
+  producto con descuento y existencias, imagen, precios, insignia y una X
+  dibujada para cerrarlo (también con Escape).
+- **Degradados solo donde no hay hijos**: el banner y la cabecera del pop-up se
+  dibujan enteros, como `GraficoBarras`; ningún contenedor con hijos pinta su
+  fondo a mano.
+- **Carrito**: miniatura, precio por unidad, selector `- n +` por renglón
+  (topado por el stock y validado otra vez en el controlador) y subtotal.
+- **Tablero del Proveedor**: cuatro indicadores con su propio color (ingresos
+  con ticket promedio, unidades con el producto más vendido, pedidos y
+  catálogo con agotados en rojo).
+- **Paquetes**: `service` dividido en `config`, `sesion`, `google` y `correo`;
+  `view.dashboard` en `cliente` y `proveedor`; los repositorios en memoria en
+  `model.repository.memoria`, simétricos a `model.repository.mongo`.
+
+### Doble rol, empresa, reseñas, datos de envío e imágenes portables
+
+- **Doble rol.** Todo usuario entra a la tienda, porque todo usuario compra.
+  El Proveedor ve además **"Gestionar tienda"** en el menú de su avatar, que
+  lo lleva a su panel; desde el panel, **"Ir a la tienda"** lo devuelve. Un
+  Cliente no ve esa opción. El carrito no se pierde al ir y volver.
+- **Empresa o marca.** El registro de Proveedor la pide (NIT y empresa en la
+  misma fila) y cada producto queda con ella: en la tarjeta y en la ficha
+  aparece **"Vendido por Supertecno"**. Si el proveedor cambia la empresa o el
+  correo en su perfil, se actualizan todos sus productos.
+- **Reseñas y estrellas.** La ficha del producto muestra el promedio con
+  estrellas (admite media estrella), las opiniones y, si el usuario **compró**
+  el producto, un formulario para calificarlo de 1 a 5 y comentar. El vendedor
+  no puede reseñar lo suyo. Las tarjetas del catálogo muestran el promedio y
+  cuántas reseñas tiene.
+- **Datos de envío obligatorios.** Una cuenta de Google nace sin cédula ni
+  dirección: el perfil lo avisa, y al confirmar una compra aparece un
+  formulario rápido que la bloquea hasta completarlos; al guardarlos, la
+  compra sigue sola. El pedido y los correos llevan el documento del
+  comprador.
+- **Imágenes sin rutas locales.** En la base ya no se guarda
+  `C:\Users\...`: la imagen elegida se reduce a 800 px y se guarda en Atlas
+  (colección `imagenes`), y el producto guarda solo `img:<id>`; sin Atlas, va
+  a la carpeta relativa `imagenes/`. Las rutas antiguas se corrigen solas al
+  arrancar.
+- **Modo claro / oscuro.** Botón de luna/sol en la barra de la tienda, en el
+  panel y en el sidebar del Login. Cambia en el sitio, **sin cerrar la
+  ventana**: FlatLaf instala la variante clara u oscura,
+  `updateComponentTreeUI` actualiza los componentes y una foto de la ventana
+  se desvanece encima para que el cambio no sea un salto. Lo escrito, el
+  carrito y la posición del catálogo se conservan. Se recuerda para el
+  próximo arranque.
+
+### Qué falta del Incremento 3
+
+Nada de lo previsto para este incremento: el envío real de los tres correos
+por Resend ya está probado y aceptado. Lo pendiente del proyecto en conjunto
+(pruebas manuales sin ejecutar, prueba de Google
+real) está en la sección "Pendientes" de la
+[guía de traspaso](docs/00_Inicio/guia_de_traspaso.md).
+
+La conexión contra un clúster real de Atlas **ya está probada**: responde al
+`ping` y las tres colecciones (`usuarios`, `productos`, `compras`) existen.
+Medido en ese clúster: **3,5 s** la primera conexión —el driver la abre de
+forma perezosa— y **~100 ms** cada consulta posterior. De ahí la sección
+siguiente.
 
 ---
 
@@ -533,15 +1087,10 @@ El reparto de responsabilidades es el mismo del resto del proyecto:
 
 **Requisitos de la contraseña.** Para registrarse, la contraseña debe tener
 al menos **7 caracteres** e incluir **una mayúscula, un número y un carácter
-especial**. Cuenta como especial **cualquier carácter que no sea letra ni
-número**, incluidos los del teclado en español (`¿`, `¡`, `°`, `´`, `€`) y el
-espacio; la `ñ` y las vocales acentuadas son letras, no símbolos. Antes se
-comparaba contra una lista fija de símbolos del teclado inglés, así que
-escribir "Clave2026¿" se marcaba como insegura sin explicar por qué. No hay
-longitud máxima, y es deliberado: un tope corto empuja a la gente hacia
-contraseñas peores sin aportar seguridad. Los mensajes de error dicen
-exactamente qué falta ("debe incluir al menos un número"), en vez de repetir
-la lista completa de reglas.
+especial**. No hay longitud máxima, y es deliberado: un tope corto empuja a
+la gente hacia contraseñas peores sin aportar seguridad. Los mensajes de
+error dicen exactamente qué falta ("debe incluir al menos un número"), en vez
+de repetir la lista completa de reglas.
 
 **Semáforo de fortaleza en vivo.** Junto a la etiqueta "Contraseña" del
 registro hay un punto de color que se actualiza con cada tecla:
@@ -549,30 +1098,8 @@ registro hay un punto de color que se actualiza con cada tecla:
 | Color | Significado | Cuándo |
 |---|---|---|
 | Rojo | Insegura | No cumple los requisitos (el registro la rechazará) |
-| Ámbar | Medianamente segura | Cumple los requisitos, pero suma menos de 4 puntos de complejidad |
-| Verde | Segura | Cumple los requisitos y suma 4 o más puntos |
-
-**El verde se gana por complejidad, no solo por longitud.** Una contraseña
-válida suma un punto por cada rasgo que la hace más difícil de adivinar (el
-máximo son 5):
-
-| Punto | Se gana cuando |
-|---|---|
-| Longitud holgada | Tiene 10 caracteres o más |
-| Longitud larga | Tiene 14 caracteres o más |
-| Mezcla de mayúsculas y minúsculas | Incluye alguna minúscula |
-| Variedad real | Usa 10 caracteres distintos o más |
-| Más de un símbolo | Incluye dos o más caracteres especiales |
-
-Mayúscula, número y símbolo no suman puntos: son obligatorios, así que toda
-contraseña válida los tiene y no distinguen a una de otra. Así,
-`Aaaaaaaaaaaa1!` (14 caracteres, pero repetida) se queda en ámbar, mientras
-que `Clave.2026#xy` (13, variada y con dos símbolos) llega a verde.
-
-Antes el nivel se decidía con un único corte de longitud (12 caracteres) y el
-nivel intermedio casi nunca se veía: al escribir seguido, la contraseña solía
-completar los requisitos cuando ya pasaba de esos 12 caracteres, así que el
-indicador saltaba de rojo a verde sin pasar por ámbar.
+| Ámbar | Medianamente segura | Cumple los requisitos, pero es corta |
+| Verde | Segura | Cumple los requisitos y además tiene 12+ caracteres con mayúsculas y minúsculas |
 
 Validación y semáforo salen de la **misma** clase
 (`controller.PoliticaPassword`), así que no pueden contradecirse: lo que el
@@ -584,7 +1111,7 @@ en un formulario que ya va justo de espacio.
 
 ## Validaciones
 
-Implementadas en `UsuarioController.validar()`: todos los campos obligatorios, identificación solo numérica, formato de correo válido y contraseña según `PoliticaPassword` (mínimo 7 caracteres, con mayúscula, número y carácter especial). Después, `UsuarioController` rechaza un correo ya registrado ("Este correo ya está registrado en el sistema."), y el repositorio rechaza de nuevo tanto identificaciones como correos duplicados, sin distinguir mayúsculas.
+Implementadas en `UsuarioController.validar()`: todos los campos obligatorios, identificación solo numérica, formato de correo válido y contraseña de mínimo 4 caracteres. El repositorio rechaza además identificaciones duplicadas.
 
 Para aceptar identificaciones alfanuméricas, eliminar la condición `identificacion.matches("\\d+")`.
 
@@ -596,7 +1123,7 @@ Para aceptar identificaciones alfanuméricas, eliminar la condición `identifica
 
 Si el registro es exitoso aparece un cuadro de diálogo emergente (`JOptionPane`) con el mensaje "Cliente registrado correctamente" o "Proveedor registrado correctamente", según el tipo de cuenta; al cerrarlo, la ventana conmuta sola a la carta de Login para iniciar sesión con la cuenta recién creada. Si hay un error de validación, el mensaje se muestra en rojo bajo el botón y el usuario permanece en el Registro.
 
-**Inicio de sesión.** La aplicación arranca mostrando la ventana amplia con el sidebar y, en el centro, el Login. Con el correo y la contraseña de un usuario ya registrado, **INICIAR SESIÓN** valida las credenciales contra el repositorio; si son correctas aparece "¡Bienvenido, &lt;nombre&gt;! Has ingresado a tu cuenta correctamente" y, al cerrar el mensaje, la ventana de Login/Registro se cierra y se abre, centrada, la ventana de trabajo del rol correspondiente (Panel de Cliente o Panel de Proveedor) con un botón **"Cerrar sesión"** que la destruye y vuelve a mostrar el Login; la X de esa ventana hace lo mismo. Para salir del programa se cierra la ventana de Login/Registro. Ninguna de las ventanas se puede redimensionar ni maximizar. Si el correo o la contraseña no coinciden, el mensaje de error aparece en rojo bajo el botón. Dentro de la ventana Login/Registro, tanto los botones del sidebar ("Log In"/"Register") como los enlaces de cada formulario ("¿No tienes cuenta? Regístrate" / "¿Ya tienes cuenta? Inicia sesión") alternan entre las dos cartas sin abrir ventanas nuevas.
+**Inicio de sesión.** La aplicación arranca mostrando la ventana amplia con el sidebar y, en el centro, el Login. Con el correo y la contraseña de un usuario ya registrado, **INICIAR SESIÓN** valida las credenciales contra el repositorio; si son correctas aparece "¡Bienvenido, &lt;nombre&gt;! Has ingresado a tu cuenta correctamente" y, al cerrar el mensaje, la ventana de Login/Registro se cierra y se abre, maximizada, la ventana de trabajo del rol correspondiente (Panel de Cliente o Panel de Proveedor) con un botón **"Cerrar sesión"** que la destruye y vuelve a mostrar el Login. Si el correo o la contraseña no coinciden, el mensaje de error aparece en rojo bajo el botón. Dentro de la ventana Login/Registro, tanto los botones del sidebar ("Log In"/"Register") como los enlaces de cada formulario ("¿No tienes cuenta? Regístrate" / "¿Ya tienes cuenta? Inicia sesión") alternan entre las dos cartas sin abrir ventanas nuevas.
 
 ---
 
@@ -606,19 +1133,20 @@ Si el registro es exitoso aparece un cuadro de diálogo emergente (`JOptionPane`
 |---|---|
 | 1 ✅ | Registro de usuarios |
 | 2 ✅ | Iteración de interfaz sobre CRUD **Create** (registro de usuarios) y **Read** (consulta de credenciales por correo vía Login, con redirección dinámica por rol): `MainFrame` con sidebar + `CardLayout` (Login/Registro), `view` modularizado por contexto, fábrica de componentes, auto-redirección a Login tras registro y confirmaciones con `JOptionPane` |
-| 3 | Interfaz de listado tabular (`JTable`) de los usuarios registrados |
-| 4 | Edición y eliminación |
-| 5 | Persistencia en base de datos |
-| 6 | Catálogo de productos |
-| 7 | Carrito y pedidos |
+| 3 ✅ | Catálogo, carrito y compra (Cliente); CRUD e indicadores (Proveedor); edición de perfil; MongoDB Atlas; BCrypt; acceso con Google; sesión recordada; correos con Resend; catálogo sincronizado (Observer) |
+| Final ✅ | Doble rol con empresa/marca, reseñas con estrellas, datos de envío obligatorios, imágenes en la nube, tema claro/oscuro en caliente, banner y pop-up promocional, ejecutable `.exe` y documentación técnica en `docs/` |
 
-El incremento 5 se resuelve creando `UsuarioRepositoryJDBC implements IUsuarioRepository` y cambiando una línea en `app.Main`, sin modificar la vista ni el controlador.
+La hoja de ruta original preveía después del Incremento 2 un listado tabular de usuarios, su edición y eliminación, persistencia, catálogo y pedidos como incrementos separados; se reorganizó en torno a los dos roles y quedó como arriba. Lo que no se implementó del diagrama conceptual inicial (pasarela de pago, logística, PQR, chat, devoluciones) está explicado en [arquitectura.md](docs/01_Arquitectura_y_Diseno/arquitectura.md).
 
 ---
 
 ## Limitaciones conocidas
 
-Los datos se pierden al cerrar la aplicación y las contraseñas se guardan en texto plano. Ambas cosas corresponden a incrementos posteriores. El contador de intentos fallidos vive en la ventana de Login, no en la cuenta: reiniciar la aplicación lo pone a cero, algo aceptable en una aplicación de escritorio de un solo usuario.
+- Sin MongoDB Atlas (sin `config.properties` o sin red) los datos viven en memoria y se pierden al cerrar. Con Atlas persisten.
+- Las contraseñas se guardan cifradas con BCrypt; las heredadas en claro se siguen aceptando para no dejar fuera a cuentas antiguas.
+- La sesión recordada puede suplantarse escribiendo a mano su archivo (ver `CLAUDE.md`, "Sesión recordada").
+- No hay pasarela de pago real ni logística de despacho.
+- Los hallazgos de presentación encontrados al probar ya están corregidos: ver [evidencias de pruebas](docs/04_Pruebas_y_Casos/evidencias_de_pruebas.md), §8.
 
 ---
 

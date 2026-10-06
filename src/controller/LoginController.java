@@ -2,79 +2,46 @@ package controller;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import javax.swing.JFrame;
-import app.Main;
-import model.entity.Usuario;
-import model.repository.IPedidoRepository;
-import model.repository.IProductoRepository;
-import model.repository.IUsuarioRepository;
-import service.INotificadorPedido;
+import aplicacion.acceso.AutenticacionService;
+import aplicacion.acceso.ResultadoAcceso;
 import view.auth.ILoginView;
-import view.auth.IRegistroUsuarioView;
-import view.dashboard.ClientDashboardFrame;
-import view.dashboard.ProviderDashboardFrame;
-import view.factory.IComponentesFactory;
 
 /**
- * Controlador del caso de uso "Iniciar sesión".
+ * Controlador de la pantalla de acceso: recoge las credenciales, se las
+ * entrega al caso de uso y traduce el resultado a lo que la vista sabe hacer.
  *
- * <p>Mismo patrón que {@link UsuarioController}: lee los datos de la
- * interfaz, valida, consulta el repositorio y decide qué hacer con el
- * resultado. La vista no sabe cómo se valida una credencial; el repositorio
- * no sabe qué es un {@code JPasswordField}.</p>
+ * <p><b>Aquí no hay reglas.</b> Cuántos fallos se toleran, cuánto dura el
+ * bloqueo, cómo se compara una contraseña y qué mensaje corresponde a cada
+ * caso son de {@link AutenticacionService}. Lo que queda es decidir a qué
+ * método de la vista va cada estado.</p>
  *
- * <p><b>Inversión de dependencias:</b> depende de {@link ILoginView},
- * {@link IUsuarioRepository} e {@link IComponentesFactory} — abstracciones,
- * ninguna implementación concreta salvo las dos ventanas de destino, que se
- * abren directamente porque este es, literalmente, el caso de uso que decide
- * a cuál ir (y, por la misma razón, el único punto que conoce
- * {@code app.Main.mostrarVentanaPrincipal(...)} para reabrirla al cerrar
- * sesión).</p>
- *
- * <p><b>Ciclo de vida estricto de ventanas:</b> tras un login exitoso, este
- * controlador cierra (a través de {@link ILoginView#cerrarVentana()}, nunca
- * llamando {@code dispose()} él mismo) la ventana de Login/Registro antes de
- * abrir el dashboard, para no dejar ventanas huérfanas acumulándose en
- * memoria.</p>
- *
- * <p><b>Bifurcación por rol sin {@code instanceof}:</b> igual que
- * {@code UsuarioController.construirUsuario}, la decisión de qué ventana
- * abrir se apoya en {@link Usuario#getTipoCuenta()} (polimorfismo), no en el
- * tipo concreto de la instancia.</p>
+ * <p><b>El reparto con la vista no cambia:</b> el controlador dice cuánto hay
+ * que bloquear y qué hacer al liberarse, y la vista decide cómo se ve la
+ * cuenta atrás y lleva su temporizador. Igual con la transición al panel del
+ * rol, que la vista ejecuta cuando termina su animación.</p>
  *
  * @author Ingeniería de Sistemas - Segundo Incremento Funcional
- * @version 1.2
+ * @version 2.0
  */
 public class LoginController implements ActionListener {
 
     private final ILoginView vista;
-    private final IUsuarioRepository repositorio;
-    private final IProductoRepository productos;
-    private final IPedidoRepository pedidos;
-    private final INotificadorPedido notificador;
-    private final IComponentesFactory fabrica;
-
-    /** Política de intentos fallidos; ver {@link ControlIntentosFallidos}. */
-    private final ControlIntentosFallidos intentos = new ControlIntentosFallidos();
+    private final AutenticacionService autenticacion;
+    private final SesionController sesion;
 
     /**
-     * Conecta la vista con el repositorio y la fábrica, y queda a la
-     * escucha del botón.
+     * Conecta la vista con el caso de uso y queda a la escucha del botón.
      *
-     * @param vista       vista de login (abstracción)
-     * @param repositorio almacén de usuarios (abstracción)
-     * @param fabrica     usada para construir la ventana de destino con el
-     *                    mismo tema visual que el resto de la aplicación
+     * @param vista         vista de login (abstracción)
+     * @param autenticacion caso de uso del acceso; lleva el contador de
+     *                      intentos de esta pantalla
+     * @param sesion        quien abre el panel del rol y recuerda la sesión
      */
-    public LoginController(ILoginView vista, IUsuarioRepository repositorio,
-                           IProductoRepository productos, IPedidoRepository pedidos,
-                           INotificadorPedido notificador, IComponentesFactory fabrica) {
+    public LoginController(ILoginView vista, AutenticacionService autenticacion,
+                           SesionController sesion) {
         this.vista = vista;
-        this.repositorio = repositorio;
-        this.productos = productos;
-        this.pedidos = pedidos;
-        this.notificador = notificador;
-        this.fabrica = fabrica;
+        this.autenticacion = autenticacion;
+        this.sesion = sesion;
         this.vista.getBtnIniciarSesion().addActionListener(this);
     }
 
@@ -90,95 +57,44 @@ public class LoginController implements ActionListener {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Flujo del caso de uso
-    // ---------------------------------------------------------------------
-
-    /** Valida las credenciales capturadas y, si son correctas, abre el panel según el rol. */
+    /**
+     * Lee el formulario y comprueba las credenciales en segundo plano.
+     *
+     * <p>Buscar la cuenta y comparar con BCrypt es lo lento de este caso de
+     * uso: con MongoDB Atlas detrás viaja por red. Va fuera del hilo de
+     * eventos para que la ventana no se congele mientras responde.</p>
+     */
     private void iniciarSesion() {
         String correo = vista.getCorreo();
         String password = vista.getPassword();
+        vista.ejecutarEnSegundoPlano("Verificando tus credenciales...",
+                () -> autenticacion.intentar(correo, password), this::mostrarResultado);
+    }
 
-        if (correo.isEmpty() || password.isEmpty()) {
-            vista.mostrarError("Ingresa tu correo y tu contraseña.");
-            return;
+    /** Lleva cada estado a su forma de mostrarse; ya en el hilo de eventos. */
+    private void mostrarResultado(ResultadoAcceso resultado) {
+        switch (resultado.estado()) {
+            case ACEPTADO -> entrar(resultado);
+            // La vista decide cómo se ve el bloqueo y lleva la cuenta atrás;
+            // al terminar, avisa al servicio para que libere el contador.
+            case BLOQUEADO -> vista.bloquearIngreso(resultado.segundos(),
+                    autenticacion::liberarBloqueo);
+            default -> vista.mostrarError(resultado.mensaje());
         }
+    }
 
-        Usuario usuario = repositorio.buscarPorCorreo(correo);
-        if (usuario == null || !usuario.getPassword().equals(password)) {
-            registrarCredencialInvalida();
-            return;
-        }
-
-        // Un acceso correcto limpia el historial: solo interesa frenar los
-        // fallos seguidos, no penalizar un error aislado de tecleo.
-        intentos.reiniciar();
-        vista.mostrarExito("¡Bienvenido, " + usuario.getNombres()
+    /**
+     * Confirma el acceso y salta al panel del rol.
+     *
+     * <p>El cierre del Login y la apertura del panel viajan como acción
+     * diferida: la vista los ejecuta cuando termina su transición.</p>
+     */
+    private void entrar(ResultadoAcceso resultado) {
+        vista.mostrarExito("¡Bienvenido, " + resultado.usuario().getNombres()
                 + "! Has ingresado a tu cuenta correctamente.");
-        // El cierre del Login y la apertura del dashboard viajan como acción
-        // diferida: la vista los ejecuta cuando termina su transición. Así el
-        // controlador sigue decidiendo QUÉ pasa después de autenticar, sin
-        // saber nada de cómo se anima ese salto.
         vista.mostrarTransicion(() -> {
             vista.cerrarVentana();
-            abrirPanelPrincipal(usuario);
+            sesion.abrir(resultado.usuario());
         });
-    }
-
-    /**
-     * Anota el fallo y decide qué corresponde: avisar cuántos intentos
-     * quedan o, si ya se agotaron, pedirle a la vista que bloquee el acceso
-     * durante el tiempo que marca la política.
-     *
-     * <p>El controlador no sabe cómo se ve ese bloqueo ni lleva la cuenta
-     * atrás: le pasa la duración y qué hacer al liberarse.</p>
-     */
-    private void registrarCredencialInvalida() {
-        intentos.registrarFallo();
-
-        if (intentos.limiteAlcanzado()) {
-            vista.bloquearIngreso(ControlIntentosFallidos.SEGUNDOS_BLOQUEO, intentos::reiniciar);
-            return;
-        }
-
-        int restantes = intentos.intentosRestantes();
-        vista.mostrarError("Correo o contraseña incorrectos. Te "
-                + (restantes == 1 ? "queda 1 intento." : "quedan " + restantes + " intentos."));
-    }
-
-    /**
-     * Abre, maximizada, la ventana de trabajo que corresponde al rol del
-     * usuario autenticado. La vista de destino no recibe el {@code Usuario}
-     * (la vista no conoce el modelo): solo su nombre, ya extraído aquí. Le
-     * entrega además la acción de "cerrar sesión": volver a ensamblar una
-     * ventana principal nueva, con el mismo repositorio y la misma fábrica
-     * (para no perder los usuarios ya registrados).
-     *
-     * @param usuario usuario ya autenticado
-     */
-    private void abrirPanelPrincipal(Usuario usuario) {
-        String nombre = usuario.getNombres();
-        Runnable alCerrarSesion = () -> Main.mostrarVentanaPrincipal(
-                repositorio, productos, pedidos, notificador, fabrica);
-
-        // Cada rol abre su ventana y se le conecta su propio controlador: el
-        // Cliente coordina catálogo, carrito y compra; el Proveedor, la
-        // gestión de su catálogo y sus indicadores de venta.
-        if (IRegistroUsuarioView.TIPO_PROVEEDOR.equals(usuario.getTipoCuenta())) {
-            ProviderDashboardFrame panelProveedor =
-                    new ProviderDashboardFrame(fabrica, nombre, alCerrarSesion);
-            new ProveedorController(panelProveedor, productos, pedidos, usuario).iniciar();
-            mostrar(panelProveedor);
-            return;
-        }
-
-        ClientDashboardFrame panelCliente = new ClientDashboardFrame(fabrica, nombre, alCerrarSesion);
-        new ClienteController(panelCliente, productos, pedidos, notificador, usuario).iniciar();
-        mostrar(panelCliente);
-    }
-
-    private void mostrar(JFrame ventana) {
-        ventana.setLocationRelativeTo(null);
-        ventana.setVisible(true);
     }
 }

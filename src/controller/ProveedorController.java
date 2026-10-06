@@ -2,70 +2,65 @@ package controller;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import aplicacion.catalogo.CatalogoService;
+import aplicacion.catalogo.ReporteVentas;
+import aplicacion.catalogo.ReporteVentasService;
+import aplicacion.catalogo.ResultadoProducto;
+import aplicacion.catalogo.SolicitudProducto;
 import model.entity.Categoria;
-import model.entity.LineaPedido;
-import model.entity.Pedido;
 import model.entity.Producto;
 import model.entity.Usuario;
-import model.repository.IPedidoRepository;
-import model.repository.IProductoRepository;
-import service.ResumenPedido;
-import view.dashboard.BarraVentas;
-import view.dashboard.DatosProducto;
-import view.dashboard.FilaProducto;
-import view.dashboard.IProveedorDashboardView;
-import view.dashboard.IndicadorVentas;
+import service.correo.ResumenPedido;
+import view.dashboard.proveedor.BarraVentas;
+import view.dashboard.proveedor.DatosProducto;
+import view.dashboard.proveedor.FilaProducto;
+import view.dashboard.proveedor.IProveedorDashboardView;
+import view.dashboard.proveedor.IndicadorVentas;
 
 /**
- * Controlador de los casos de uso del Proveedor: publicar productos,
- * mantenerlos al día y consultar cómo se están vendiendo.
+ * Controlador del panel del Proveedor: recoge lo que se pulsa en la pantalla,
+ * llama al caso de uso que corresponde y vuelve a pintar el resultado.
  *
- * <p>Nace en este incremento por la misma razón que {@link ClienteController}:
- * hasta el Incremento 2 el panel del Proveedor era una pantalla de aterrizaje
- * sin nada que coordinar, y por eso no se le inventó un controlador vacío.</p>
+ * <p><b>Aquí no hay reglas de negocio.</b> Validar un producto, guardarlo,
+ * avisar al catálogo y calcular las cifras de venta son de
+ * {@link CatalogoService} y {@link ReporteVentasService}. Lo que queda en esta
+ * clase es traducción: pasar de los registros de la vista
+ * ({@link DatosProducto}) a los de la aplicación ({@link SolicitudProducto}) y
+ * al revés, dar formato a los importes y decidir qué serie muestra el
+ * gráfico.</p>
  *
- * <p><b>Inversión de dependencias:</b> depende de {@link IProductoRepository},
- * {@link IPedidoRepository} e {@link IProveedorDashboardView} — abstracciones.
- * El mismo controlador sirve con los repositorios en memoria de hoy y con
- * MongoDB Atlas mañana.</p>
- *
- * <p><b>Aquí vive la validación del formulario</b> (que el precio sea un
- * número, que el descuento esté entre 0 y 100, que el stock no sea negativo).
- * La vista captura texto y este controlador decide si ese texto es un
- * producto, igual que {@link UsuarioController} decide si unos campos son un
- * usuario.</p>
+ * <p><b>La vista no conoce el modelo:</b> recibe {@link FilaProducto},
+ * {@link IndicadorVentas} y {@link BarraVentas}, con los importes ya
+ * formateados.</p>
  *
  * @author Ingeniería de Sistemas - Tercer Incremento Funcional
- * @version 1.0
+ * @version 2.0
  */
 public class ProveedorController {
 
-    private static final int DESCUENTO_MAXIMO = 100;
     /** Tope de barras del gráfico: más allá deja de leerse de un vistazo. */
     private static final int BARRAS_VISIBLES = 6;
 
     private final IProveedorDashboardView vista;
-    private final IProductoRepository productos;
-    private final IPedidoRepository pedidos;
+    private final CatalogoService catalogo;
+    private final ReporteVentasService reportes;
     private final Usuario proveedor;
 
     /**
-     * Conecta la vista con los repositorios y deja registradas las acciones.
+     * Conecta la vista con los casos de uso y deja registradas las acciones.
      *
      * @param vista     panel del Proveedor (abstracción)
-     * @param productos catálogo (abstracción)
-     * @param pedidos   almacén de órdenes, de donde salen las ventas
+     * @param catalogo  caso de uso de publicar, editar y eliminar productos
+     * @param reportes  caso de uso de las cifras de venta
      * @param proveedor proveedor autenticado; su correo es el dueño de todo lo
      *                  que publique
      */
-    public ProveedorController(IProveedorDashboardView vista, IProductoRepository productos,
-                               IPedidoRepository pedidos, Usuario proveedor) {
+    public ProveedorController(IProveedorDashboardView vista, CatalogoService catalogo,
+                               ReporteVentasService reportes, Usuario proveedor) {
         this.vista = vista;
-        this.productos = productos;
-        this.pedidos = pedidos;
+        this.catalogo = catalogo;
+        this.reportes = reportes;
         this.proveedor = proveedor;
 
         vista.alCrearProducto(this::crearProducto);
@@ -84,138 +79,71 @@ public class ProveedorController {
     }
 
     // ---------------------------------------------------------------------
-    // CRUD del catálogo
+    // Acciones del formulario
     // ---------------------------------------------------------------------
 
     private void crearProducto(DatosProducto datos) {
-        String error = validar(datos);
-        if (error != null) {
-            vista.mostrarAviso(error);
-            return;
-        }
-        Producto producto = new Producto(null, datos.nombre().trim(), datos.descripcion().trim(),
-                aNumero(datos.precio()), (int) aNumero(datos.descuento()),
-                categoriaDe(datos.categoria()), (int) aNumero(datos.stock()),
-                datos.imagen() == null ? "" : datos.imagen().trim(), proveedor.getCorreo());
-        productos.guardar(producto);
-        refrescar();
-        vista.mostrarExito("Publicaste " + producto.getNombre()
-                + ". Ya aparece en el catálogo de los clientes.");
+        // Validar y guardar viajan juntos al servicio: con MongoDB Atlas
+        // detrás, guardar es un viaje por red y en el hilo que pinta la
+        // ventana la congelaría.
+        vista.ejecutarEnSegundoPlano("Publicando tu producto...",
+                () -> catalogo.publicar(aSolicitud(datos), proveedor.getCorreo(),
+                        proveedor.getNombreEmpresa()),
+                resultado -> contar(resultado, "Publicaste %s."
+                        + " Ya aparece en el catálogo de los clientes."));
     }
 
     private void actualizarProducto(String id, DatosProducto datos) {
-        Producto producto = productos.buscarPorId(id);
-        if (producto == null) {
-            vista.mostrarAviso("Ese producto ya no existe en el catálogo.");
-            refrescar();
-            return;
-        }
-        String error = validar(datos);
-        if (error != null) {
-            vista.mostrarAviso(error);
-            return;
-        }
-        producto.setNombre(datos.nombre().trim());
-        producto.setDescripcion(datos.descripcion().trim());
-        producto.setPrecio(aNumero(datos.precio()));
-        producto.setPorcentajeDescuento((int) aNumero(datos.descuento()));
-        producto.setCategoria(categoriaDe(datos.categoria()));
-        producto.setStock((int) aNumero(datos.stock()));
-        producto.setImagen(datos.imagen() == null ? "" : datos.imagen().trim());
-        productos.guardar(producto);
-        refrescar();
-        vista.mostrarExito("Actualizaste " + producto.getNombre() + ".");
+        vista.ejecutarEnSegundoPlano("Guardando los cambios...",
+                () -> catalogo.actualizar(id, aSolicitud(datos)),
+                resultado -> contar(resultado, "Actualizaste %s."));
     }
 
     private void eliminarProducto(String id) {
-        Producto producto = productos.buscarPorId(id);
-        if (producto == null || !productos.eliminar(id)) {
-            vista.mostrarAviso("Ese producto ya no existe en el catálogo.");
-            refrescar();
+        vista.ejecutarEnSegundoPlano("Eliminando el producto...",
+                () -> catalogo.eliminar(id),
+                resultado -> contar(resultado, "Eliminaste %s del catálogo."));
+    }
+
+    /**
+     * Muestra cómo salió la operación y deja la pantalla al día.
+     *
+     * <p>Se refresca también cuando hubo error: el motivo más común es que
+     * otra sesión borró el producto, y entonces la tabla está enseñando una
+     * fila que ya no existe.</p>
+     *
+     * @param resultado      lo que devolvió el caso de uso
+     * @param plantillaExito mensaje de éxito, con un {@code %s} para el nombre
+     */
+    private void contar(ResultadoProducto resultado, String plantillaExito) {
+        refrescar();
+        if (!resultado.exitoso()) {
+            vista.mostrarAviso(resultado.error());
             return;
         }
-        refrescar();
-        vista.mostrarExito("Eliminaste " + producto.getNombre() + " del catálogo.");
+        vista.mostrarExito(String.format(plantillaExito, resultado.producto().getNombre()));
     }
 
     // ---------------------------------------------------------------------
-    // Validación del formulario
-    // ---------------------------------------------------------------------
-
-    /**
-     * Comprueba lo que se capturó en el formulario.
-     *
-     * @param datos texto tal como lo escribió el proveedor
-     * @return mensaje de error, o {@code null} si todo está bien — mismo
-     *         patrón que {@link PoliticaPassword#validar(String)}
-     */
-    private String validar(DatosProducto datos) {
-        if (datos.nombre() == null || datos.nombre().isBlank()) {
-            return "El producto necesita un nombre.";
-        }
-        if (datos.descripcion() == null || datos.descripcion().isBlank()) {
-            return "Describe el producto para que el cliente sepa qué está comprando.";
-        }
-        if (aNumero(datos.precio()) <= 0) {
-            return "El precio debe ser un número mayor que cero.";
-        }
-        double descuento = aNumero(datos.descuento());
-        if (descuento < 0 || descuento > DESCUENTO_MAXIMO) {
-            return "El descuento debe ser un número entre 0 y 100.";
-        }
-        if (aNumero(datos.stock()) < 0) {
-            return "El stock debe ser un número de cero en adelante.";
-        }
-        return null;
-    }
-
-    /**
-     * Convierte a número lo que se escribió en un campo.
-     *
-     * @param texto contenido del campo
-     * @return el valor, o {@code -1} si no es un número — un negativo que
-     *         ninguna de las comprobaciones acepta, así que un texto inválido
-     *         cae en el mismo mensaje que un valor fuera de rango
-     */
-    private double aNumero(String texto) {
-        if (texto == null) {
-            return -1;
-        }
-        try {
-            return Double.parseDouble(texto.trim().replace(",", "."));
-        } catch (NumberFormatException ex) {
-            return -1;
-        }
-    }
-
-    private Categoria categoriaDe(String etiqueta) {
-        for (Categoria categoria : Categoria.values()) {
-            if (categoria.getEtiqueta().equals(etiqueta)) {
-                return categoria;
-            }
-        }
-        return Categoria.values()[0];
-    }
-
-    // ---------------------------------------------------------------------
-    // Tabla e indicadores
+    // Pintado de la tabla, las cifras y el gráfico
     // ---------------------------------------------------------------------
 
     /** Vuelve a pintar la tabla y las cifras tras cualquier cambio. */
     private void refrescar() {
-        List<Producto> mios = productos.listarPorProveedor(proveedor.getCorreo());
+        ReporteVentas reporte = reportes.generar(proveedor.getCorreo());
 
         List<FilaProducto> filas = new ArrayList<>();
-        int agotados = 0;
-        for (Producto producto : mios) {
+        for (Producto producto : reporte.productos()) {
             filas.add(aFila(producto));
-            if (!producto.hayExistencias()) {
-                agotados++;
-            }
         }
         vista.mostrarProductos(filas);
-        vista.mostrarIndicadores(calcularIndicadores(mios, filas.size(), agotados));
-        mostrarRendimiento(mios);
+        Producto estrella = reporte.productoEstrella();
+        vista.mostrarIndicadores(new IndicadorVentas(
+                ResumenPedido.moneda(reporte.ingresos()), reporte.unidadesVendidas(),
+                reporte.pedidosConVenta(), reporte.publicados(), reporte.agotados(),
+                ResumenPedido.moneda(reporte.ticketPromedio()),
+                estrella == null ? "" : estrella.getNombre()));
+        mostrarRendimiento(reporte);
     }
 
     /**
@@ -228,16 +156,14 @@ public class ProveedorController {
      * que sí tiene datos desde el primer producto, y el título lo anuncia.
      * Cambiar de serie sin decirlo sería engañoso; decirlo lo vuelve honesto.</p>
      *
-     * @param mios productos del proveedor
+     * <p>Elegir qué serie se muestra es una decisión de pantalla, y por eso se
+     * queda aquí: el servicio entrega las cifras de las dos.</p>
      */
-    private void mostrarRendimiento(List<Producto> mios) {
-        Map<String, Double> ingresosPorProducto = ingresosPorProducto(mios);
-        boolean hayVentas = ingresosPorProducto.values().stream().anyMatch(valor -> valor > 0);
-
+    private void mostrarRendimiento(ReporteVentas reporte) {
         List<BarraVentas> barras = new ArrayList<>();
-        if (hayVentas) {
-            for (Producto producto : mios) {
-                double ingreso = ingresosPorProducto.getOrDefault(producto.getId(), 0.0);
+        if (reporte.hayVentas()) {
+            for (Producto producto : reporte.productos()) {
+                double ingreso = reporte.ingresosPorProducto().getOrDefault(producto.getId(), 0.0);
                 if (ingreso > 0) {
                     barras.add(new BarraVentas(producto.getNombre(), ingreso,
                             ResumenPedido.moneda(ingreso)));
@@ -249,7 +175,7 @@ public class ProveedorController {
             return;
         }
 
-        for (Producto producto : mios) {
+        for (Producto producto : reporte.productos()) {
             barras.add(new BarraVentas(producto.getNombre(), producto.getStock(),
                     producto.getStock() + " u."));
         }
@@ -263,20 +189,14 @@ public class ProveedorController {
         return barras.subList(0, Math.min(BARRAS_VISIBLES, barras.size()));
     }
 
-    /** @return cuánto ha facturado cada producto del proveedor, por id */
-    private Map<String, Double> ingresosPorProducto(List<Producto> mios) {
-        Map<String, Double> ingresos = new LinkedHashMap<>();
-        for (Producto producto : mios) {
-            ingresos.put(producto.getId(), 0.0);
-        }
-        for (Pedido pedido : pedidos.listarTodos()) {
-            for (LineaPedido linea : pedido.getLineas()) {
-                if (ingresos.containsKey(linea.getIdProducto())) {
-                    ingresos.merge(linea.getIdProducto(), linea.getSubtotal(), Double::sum);
-                }
-            }
-        }
-        return ingresos;
+    // ---------------------------------------------------------------------
+    // Traducción entre la vista y la capa de aplicación
+    // ---------------------------------------------------------------------
+
+    /** Pasa el registro de la vista al de la aplicación, sin convertir nada. */
+    private SolicitudProducto aSolicitud(DatosProducto datos) {
+        return new SolicitudProducto(datos.nombre(), datos.descripcion(), datos.precio(),
+                datos.descuento(), datos.categoria(), datos.stock(), datos.imagen());
     }
 
     private FilaProducto aFila(Producto producto) {
@@ -290,43 +210,5 @@ public class ProveedorController {
                 producto.getPorcentajeDescuento(),
                 producto.getStock(),
                 producto.getImagen());
-    }
-
-    /**
-     * Recorre los pedidos y suma solo los renglones de productos propios.
-     *
-     * <p>Un pedido puede mezclar artículos de varios proveedores, así que no
-     * se toma su total: se suman renglón por renglón los que le pertenecen a
-     * este. El pedido cuenta como venta suya si aportó al menos uno.</p>
-     *
-     * @param mios       productos publicados por el proveedor
-     * @param publicados cuántos son
-     * @param agotados   cuántos se quedaron sin existencias
-     * @return las cifras ya formateadas para la vista
-     */
-    private IndicadorVentas calcularIndicadores(List<Producto> mios, int publicados, int agotados) {
-        List<String> idsPropios = new ArrayList<>();
-        for (Producto producto : mios) {
-            idsPropios.add(producto.getId());
-        }
-
-        double ingresos = 0;
-        int unidades = 0;
-        int pedidosConVenta = 0;
-        for (Pedido pedido : pedidos.listarTodos()) {
-            boolean aporta = false;
-            for (LineaPedido linea : pedido.getLineas()) {
-                if (idsPropios.contains(linea.getIdProducto())) {
-                    ingresos += linea.getSubtotal();
-                    unidades += linea.getCantidad();
-                    aporta = true;
-                }
-            }
-            if (aporta) {
-                pedidosConVenta++;
-            }
-        }
-        return new IndicadorVentas(ResumenPedido.moneda(ingresos), unidades,
-                pedidosConVenta, publicados, agotados);
     }
 }
